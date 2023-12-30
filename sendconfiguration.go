@@ -2,13 +2,15 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
+	"strings"
 )
 
 type DestinationChoice struct {
 	// If filename specified, then is explicit list of destinations and assumed asset send choice determines what is sent to each.
-	CSVFilename string `json:"csvFilename"`
+	//CSVFilename string `json:"csvFilename"`
 	// If it should only be sent to segments of specified Root
 	SegmentsOfRoot string `json:"segmentsOfRoot"`
 	// If RandomNFDs is filled out then target isn't 'all' it's random in some way
@@ -18,7 +20,22 @@ type DestinationChoice struct {
 		Count int `json:"count"`
 		// If doing random, but SegmentsOfRoot isn't set then only pick random roots
 		OnlyRoots bool `json:"onlyRoots"`
-	} `json:"randomNfDs"`
+	} `json:"randomNFDs"`
+}
+
+func (dc DestinationChoice) String() string {
+	var sb strings.Builder
+	if dc.SegmentsOfRoot != "" {
+		sb.WriteString(fmt.Sprintf("Segments of root:%s, ", dc.SegmentsOfRoot))
+	}
+	if dc.RandomNFDs.OnlyRoots {
+		sb.WriteString(fmt.Sprintf("Grabbing 'roots' only, "))
+
+	}
+	if dc.RandomNFDs.Count != 0 {
+		sb.WriteString(fmt.Sprintf("Limited to maximum of %d recipients", dc.RandomNFDs.Count))
+	}
+	return sb.String()
 }
 
 type AssetChoice struct {

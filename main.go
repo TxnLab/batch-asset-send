@@ -1,25 +1,26 @@
 package main
 
 import (
+	"bufio"
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"log/slog"
 	"math"
-	"time"
+	"math/rand"
+	"os"
+	"strings"
 
 	"github.com/algorand/go-algorand-sdk/v2/client/v2/algod"
 	"github.com/algorand/go-algorand-sdk/v2/types"
-	"github.com/antihax/optional"
-	"github.com/ssgreg/repeat"
 
 	"github.com/TxnLab/batch-asset-send/lib/algo"
 	"github.com/TxnLab/batch-asset-send/lib/misc"
 	nfdapi "github.com/TxnLab/batch-asset-send/lib/nfdapi/swagger"
 )
 
+// This is simple CLI - global vars here are fine... get over it.
 var (
 	ctx           = context.Background()
 	algoClient    *algod.Client
@@ -65,24 +66,83 @@ func main() {
 		sourceAccount, _ = types.DecodeAddress(vaultNfd.NfdAccount)
 	}
 
+	// Collect set of assets to send so we can determine distribution
 	assetsToSend, err := fetchAssets(sendConfig)
 	if err != nil {
 		log.Fatalln(err)
 	}
+	if len(assetsToSend) == 0 {
+		log.Fatalln("No assets to send")
+	}
 	logger.Info(fmt.Sprintf("want to send:%s", assetsToSend[0]))
+	//PromptForConfirmation("Are you sure you want to proceed? (y/n): ")
 
-	//// Get app id of specific nfd
-	//nfd, _, err := api.NfdApi.NfdGetNFD(ctx, "barb.algo", nil)
-	//if err != nil {
-	//	log.Fatalln(err)
-	//}
-	//logger.Info(fmt.Sprintf("nfd app id for barb.algo is:%v", nfd.AppID))
-	//
-	//nfds, err := getAllSegments(ctx, nfd.AppID, "brief")
-	//if err != nil {
-	//	log.Fatalln(err)
-	//}
-	//logger.Info("fetched segments", "count", len(nfds))
+	logger.Info("Collecting data for:", "config", sendConfig.Destination.String())
+	recipients, err := collectRecipients(sendConfig)
+	logger.Info(fmt.Sprintf("Collected %d recipients", len(recipients)))
+}
+
+func collectRecipients(config *BatchSendConfig) ([]*Recipient, error) {
+	var (
+		nfds      []*nfdapi.NfdRecord
+		err       error
+		numToPick int
+	)
+	if config.Destination.SegmentsOfRoot != "" {
+		nfds, err = getSegmentsOfRoot(config.Destination.SegmentsOfRoot)
+		if err != nil {
+			return nil, err
+		}
+		if config.Destination.RandomNFDs.OnlyRoots {
+			// can't say only roots - but want segments of a root
+			log.Fatalln("configured to get segments of a root but then specified wanting only roots! This is an invalid configuration")
+		}
+	} else {
+		// Just grab all 'owned' nfds  - then filter off to those eligible for airdrops
+		nfds, err = getAllNfds(config.Destination.RandomNFDs.OnlyRoots)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if config.Destination.RandomNFDs.Count != 0 {
+		numToPick = config.Destination.RandomNFDs.Count
+		logger.Info(fmt.Sprintf("Random count of NFDs chosen, count:%d", numToPick))
+	}
+	if numToPick == 0 {
+		// we're not limiting the count - so we're done
+		recips := make([]*Recipient, 0, len(nfds))
+		for _, nfd := range nfds {
+			recips = append(recips, &Recipient{
+				NfdName:        nfd.Name,
+				DepositAccount: nfd.DepositAccount,
+			})
+		}
+		return recips, nil
+	}
+	// grab random unique nfds up through numToPick
+	recipIndices := make(map[int]bool)
+	for len(recipIndices) < numToPick {
+		index := rand.Intn(len(nfds))
+		recipIndices[index] = true
+	}
+
+	recips := make([]*Recipient, 0, numToPick)
+	for index := range recipIndices {
+		nfd := nfds[index]
+		recips = append(recips, &Recipient{
+			NfdName:        nfd.Name,
+			DepositAccount: nfd.DepositAccount,
+		})
+	}
+
+	return recips, nil
+}
+
+type Recipient struct {
+	// For sending to NFD - just send to depositAccount if already opted-in, otherwise send to Vault.
+	NfdName        string
+	DepositAccount string
+	SendToVault    bool
 }
 
 type SendAsset struct {
@@ -108,7 +168,7 @@ func formattedAmount(amount, decimals uint64) string {
 }
 
 func fetchAssets(config *BatchSendConfig) ([]*SendAsset, error) {
-	// using algorand sdk via algoClient, fetch the asset specified by config.Send.Asset.ASA into SendAsset struct
+	// Fetch/verify asset info user specified in send configuration
 	assetsToSend := []*SendAsset{}
 	assetId := sendConfig.Send.Asset.ASA
 	assetInfo, err := algoClient.GetAssetByID(assetId).Do(ctx)
@@ -177,66 +237,12 @@ func initClients(network string) {
 	api = nfdapi.NewAPIClient(nfdApiCfg)
 }
 
-func getAllSegments(ctx context.Context, parentAppID int64, view string) ([]*nfdapi.NfdRecord, error) {
-	var (
-		offset, limit int32 = 0, 200
-		records       nfdapi.NfdV2SearchRecords
-		err           error
-		nfds          []*nfdapi.NfdRecord
-	)
-
-	if view == "" {
-		view = "brief"
+func PromptForConfirmation(prompt string) {
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Print(prompt)
+	text, _ := reader.ReadString('\n')
+	text = strings.TrimSpace(text)
+	if text != "y" && text != "Y" {
+		log.Fatalln("Operation cancelled")
 	}
-	searchOp := func() error {
-		start := time.Now()
-		records, _, err = api.NfdApi.NfdSearchV2(ctx, &nfdapi.NfdApiNfdSearchV2Opts{
-			ParentAppID: optional.NewInt64(parentAppID),
-			View:        optional.NewString(view),
-			Limit:       optional.NewInt32(limit),
-			Offset:      optional.NewInt32(offset),
-		})
-		if err != nil {
-			if rate, match := isRateLimited(err); match {
-				logger.Warn("rate limited", "cur length", len(nfds), "responseDelay", time.Since(start), "waiting", rate.SecsRemaining)
-				time.Sleep(time.Duration(rate.SecsRemaining+1) * time.Second)
-				return repeat.HintTemporary(err)
-			}
-			return err
-		}
-		return err
-	}
-
-	for ; ; offset += limit {
-		err = repeat.Repeat(repeat.Fn(searchOp), repeat.StopOnSuccess())
-
-		if err != nil {
-			return nil, fmt.Errorf("error while fetching segments: %w", err)
-		}
-
-		if records.Nfds == nil || len(*records.Nfds) == 0 {
-			break
-		}
-		for _, record := range *records.Nfds {
-			nfds = append(nfds, &record)
-		}
-	}
-	return nfds, nil
-}
-
-func isRateLimited(err error) (*nfdapi.RateLimited, bool) {
-	if swaggerError, match := isSwaggerError(err); match {
-		if limit, match := swaggerError.Model().(nfdapi.RateLimited); match {
-			return &limit, true
-		}
-	}
-	return nil, false
-}
-
-func isSwaggerError(err error) (*nfdapi.GenericSwaggerError, bool) {
-	var swaggerError nfdapi.GenericSwaggerError
-	if errors.As(err, &swaggerError) {
-		return &swaggerError, true
-	}
-	return nil, false
 }

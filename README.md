@@ -8,3 +8,4 @@ The downloaded library was inserted into the lib/nfdapi/swagger directory with m
 
 A simple example is that at least for the Go generated code, some generated types used int32 when they should be at least int64/uint64.
   The asa/app id fields for example.
+
