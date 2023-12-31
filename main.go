@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
-	"math"
 	"math/rand"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/algorand/go-algorand-sdk/v2/client/v2/algod"
@@ -74,12 +74,74 @@ func main() {
 	if len(assetsToSend) == 0 {
 		log.Fatalln("No assets to send")
 	}
-	logger.Info(fmt.Sprintf("want to send:%s", assetsToSend[0]))
+	misc.Infof(logger, "want to send:%s", assetsToSend[0])
 	//PromptForConfirmation("Are you sure you want to proceed? (y/n): ")
 
+	var (
+		recipients []*Recipient
+	)
+
 	logger.Info("Collecting data for:", "config", sendConfig.Destination.String())
-	recipients, err := collectRecipients(sendConfig)
-	logger.Info(fmt.Sprintf("Collected %d recipients", len(recipients)))
+	recipients, err = collectRecipients(sendConfig)
+	misc.Infof(logger, "Collected %d recipients", len(recipients))
+	if !sendConfig.Destination.AllowDuplicateAccounts {
+		// Ensure we have unique recipients unless they allow dups
+		uniqRecipients := getUniqueRecipients(recipients)
+		if len(uniqRecipients) != len(recipients) {
+			misc.Infof(logger, "Reduced to %d UNIQUE deposit accounts", len(uniqRecipients))
+			recipients = uniqRecipients
+		}
+	}
+	// sort by nfd name
+	sortRecipients(recipients)
+
+	err = sendAssets(assetsToSend, recipients)
+	if err != nil {
+		logger.Error(fmt.Sprintf("error in asset send, err:%v", err))
+	}
+}
+
+func sortRecipients(recipients []*Recipient) {
+	// sort the recipients by deposit account
+	sort.Slice(recipients, func(i, j int) bool {
+		return recipients[i].DepositAccount < recipients[j].DepositAccount
+	})
+}
+
+func getUniqueRecipients(recipients []*Recipient) []*Recipient {
+	uniqueRecipients := make(map[string]*Recipient)
+	for _, recipient := range recipients {
+		uniqueRecipients[recipient.DepositAccount] = recipient
+	}
+
+	uniqueRecipientsList := make([]*Recipient, 0, len(uniqueRecipients))
+	for _, recipient := range uniqueRecipients {
+		uniqueRecipientsList = append(uniqueRecipientsList, recipient)
+	}
+
+	return uniqueRecipientsList
+}
+
+func sendAssets(send []*SendAsset, recipients []*Recipient) error {
+	for _, asset := range send {
+		var amount float64
+		if asset.IsAmountPerRecip {
+			amount = asset.AmountToSend
+		} else {
+			amount = asset.AmountToSend / float64(len(recipients))
+		}
+		baseUnitAmount := asset.amountInBaseUnits(amount)
+		misc.Infof(logger, "Sending %s of asset %d to %d recipients", asset.formattedAmount(baseUnitAmount), asset.AssetID, len(recipients))
+		for _, recipient := range recipients {
+
+			misc.Infof(logger, "  %s: %s", recipient.DepositAccount, recipient.NfdName)
+			//err := sendAssetToRecipient(asset.AssetID, baseUnitAmount, recipient.DepositAccount)
+			//if err != nil {
+			//	return err
+			//}
+		}
+	}
+	return nil
 }
 
 func collectRecipients(config *BatchSendConfig) ([]*Recipient, error) {
@@ -106,7 +168,7 @@ func collectRecipients(config *BatchSendConfig) ([]*Recipient, error) {
 	}
 	if config.Destination.RandomNFDs.Count != 0 {
 		numToPick = config.Destination.RandomNFDs.Count
-		logger.Info(fmt.Sprintf("Random count of NFDs chosen, count:%d", numToPick))
+		misc.Infof(logger, "Random count of NFDs chosen, count:%d", numToPick)
 	}
 	if numToPick == 0 {
 		// we're not limiting the count - so we're done
@@ -145,28 +207,6 @@ type Recipient struct {
 	SendToVault    bool
 }
 
-type SendAsset struct {
-	AssetID           uint64
-	Decimals          uint64
-	ExistingBalance   uint64
-	WholeAmountToSend uint64
-	IsAmountPerRecip  bool
-}
-
-// write String method for SendAsset
-func (a *SendAsset) String() string {
-	return fmt.Sprintf("AssetID: %d, Decimals: %d, ExistingBalance: %s, WholeAmountToSend: %d, IsAmountPerRecip: %t",
-		a.AssetID, a.Decimals,
-		formattedAmount(a.ExistingBalance, a.Decimals),
-		a.WholeAmountToSend,
-		//formattedAmount(uint64(float64(a.WholeAmountToSend)*math.Pow10(int(a.Decimals))), a.Decimals),
-		a.IsAmountPerRecip)
-}
-
-func formattedAmount(amount, decimals uint64) string {
-	return fmt.Sprintf("%.*f", decimals, float64(amount)/math.Pow10(int(decimals)))
-}
-
 func fetchAssets(config *BatchSendConfig) ([]*SendAsset, error) {
 	// Fetch/verify asset info user specified in send configuration
 	assetsToSend := []*SendAsset{}
@@ -181,11 +221,11 @@ func fetchAssets(config *BatchSendConfig) ([]*SendAsset, error) {
 		return nil, fmt.Errorf("error fetching asset info for ASA:%d from account:%s, err:%w", assetId, sourceAccount.String(), err)
 	}
 	assetsToSend = append(assetsToSend, &SendAsset{
-		AssetID:           assetId,
-		Decimals:          assetInfo.Params.Decimals,
-		ExistingBalance:   holdingInfo.AssetHolding.Amount,
-		WholeAmountToSend: config.Send.Asset.WholeAmount,
-		IsAmountPerRecip:  config.Send.Asset.IsPerRecip,
+		AssetID:          assetId,
+		AssetParams:      assetInfo.Params,
+		ExistingBalance:  holdingInfo.AssetHolding.Amount,
+		AmountToSend:     config.Send.Asset.Amount,
+		IsAmountPerRecip: config.Send.Asset.IsPerRecip,
 	})
 	return assetsToSend, nil
 }
@@ -207,6 +247,7 @@ func ensureValidParams(network string, sender string) {
 }
 
 func initLogger() {
+	log.SetOutput(os.Stdout)
 	logger = slog.Default()
 }
 

@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"github.com/algorand/go-algorand-sdk/v2/client/v2/algod"
+
+	"github.com/TxnLab/batch-asset-send/lib/misc"
 )
 
 func GetAlgoClient(log *slog.Logger, config NetworkConfig) (*algod.Client, error) {
@@ -40,7 +42,7 @@ func GetAlgoClient(log *slog.Logger, config NetworkConfig) (*algod.Client, error
 	if serverAddr.Scheme == "tcp" {
 		serverAddr.Scheme = "http"
 	}
-	log.Info(fmt.Sprintf("Connecting to Algorand node at:%s", serverAddr.String()))
+	misc.Infof(log, "Connecting to Algorand node at:%s", serverAddr.String())
 
 	// Override the default transport so we can properly support multiple parallel connections to same
 	// host (and allow connection resuse)

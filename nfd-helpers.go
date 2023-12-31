@@ -10,6 +10,7 @@ import (
 	"github.com/antihax/optional"
 	"github.com/ssgreg/repeat"
 
+	"github.com/TxnLab/batch-asset-send/lib/misc"
 	nfdapi "github.com/TxnLab/batch-asset-send/lib/nfdapi/swagger"
 )
 
@@ -71,7 +72,7 @@ func getSegmentsOfRoot(rootNfdName string) ([]*nfdapi.NfdRecord, error) {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	logger.Info(fmt.Sprintf("nfd app id for %s is:%v", nfd.Name, nfd.AppID))
+	misc.Infof(logger, fmt.Sprintf("nfd app id for %s is:%v", nfd.Name, nfd.AppID))
 
 	// brief view is fine for all segments... we just need depositAccount, owner, ...
 	nfds, err := getAllSegments(ctx, nfd.AppID, "")

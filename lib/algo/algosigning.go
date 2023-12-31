@@ -18,6 +18,8 @@ import (
 	"github.com/algorand/go-algorand-sdk/v2/encoding/msgpack"
 	"github.com/algorand/go-algorand-sdk/v2/transaction"
 	"github.com/algorand/go-algorand-sdk/v2/types"
+
+	"github.com/TxnLab/batch-asset-send/lib/misc"
 )
 
 type TxnSigner interface {
@@ -101,7 +103,7 @@ func SignGroupTransactionsForFrontend(ctx context.Context, log *slog.Logger, txn
 		jsonResp = append(jsonResp, txnTuple)
 		txIDs = append(txIDs, txID)
 	}
-	log.Info(fmt.Sprintf("SignGroupTransactionsForFrontend: txids:%#v", txIDs))
+	misc.Infof(log, "SignGroupTransactionsForFrontend: txids:%#v", txIDs)
 
 	return json.Marshal(jsonResp)
 }

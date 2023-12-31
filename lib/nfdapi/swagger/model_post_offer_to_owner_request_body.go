@@ -12,7 +12,7 @@ package swagger
 type PostOfferToOwnerRequestBody struct {
 	// Note to pass along to the NFD owner.  Must be provided but can be blank
 	Note string `json:"note"`
-	// WholeAmount in microAlgo being offered to the NFD owner
+	// Amount in microAlgo being offered to the NFD owner
 	Offer  int32  `json:"offer"`
 	Sender string `json:"sender"`
 }
