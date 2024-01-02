@@ -17,8 +17,9 @@ type SendAsset struct {
 
 // write String method for SendAsset
 func (a *SendAsset) String() string {
-	return fmt.Sprintf("AssetID: %d, ExistingBalance: %s, AmountToSend: %f, IsAmountPerRecip: %t",
+	return fmt.Sprintf("AssetID: %d (%s), ExistingBalance: %s, AmountToSend: %f, IsAmountPerRecip: %t",
 		a.AssetID,
+		a.AssetParams.UnitName,
 		a.formattedAmount(a.ExistingBalance),
 		a.AmountToSend,
 		a.IsAmountPerRecip)

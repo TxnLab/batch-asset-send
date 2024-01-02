@@ -28,7 +28,7 @@ var (
 	logger        *slog.Logger
 	signer        algo.MultipleWalletSigner
 	sendConfig    *BatchSendConfig
-	vaultNfd      nfdapi.NfdRecord
+	vaultNfd      *nfdapi.NfdRecord
 	sourceAccount types.Address // the account we truly send from -used for fetching sender balances, etc.
 )
 
@@ -48,6 +48,7 @@ func main() {
 	sourceAccount, _ = types.DecodeAddress(*sender)
 
 	var err error
+	misc.Infof(logger, "loading json config from:%s", *config)
 	sendConfig, err = loadJSONConfig(*config)
 	if err != nil {
 		log.Fatalln("error loading json config from:", *config, "error:", err)
@@ -55,13 +56,14 @@ func main() {
 
 	// if vault specified - make sure its valid and sender is owner
 	if *vault != "" {
-		vaultNfd, _, err = api.NfdApi.NfdGetNFD(ctx, *vault, nil)
+		fetchedNfd, _, err := api.NfdApi.NfdGetNFD(ctx, *vault, nil)
 		if err != nil {
 			log.Fatalln("vault nfd:", *vault, "error:", err)
 		}
-		if vaultNfd.Owner != *sender {
+		if fetchedNfd.Owner != *sender {
 			log.Fatalln("vault nfd:", *vault, "is not owned by sender:", *sender)
 		}
+		vaultNfd = &fetchedNfd
 		// set 'source account' to the vault account
 		sourceAccount, _ = types.DecodeAddress(vaultNfd.NfdAccount)
 	}
@@ -74,8 +76,10 @@ func main() {
 	if len(assetsToSend) == 0 {
 		log.Fatalln("No assets to send")
 	}
-	misc.Infof(logger, "want to send:%s", assetsToSend[0])
-	//PromptForConfirmation("Are you sure you want to proceed? (y/n): ")
+	misc.Infof(logger, "Want to send")
+	for _, asset := range assetsToSend {
+		misc.Infof(logger, "  %s", asset)
+	}
 
 	var (
 		recipients []*Recipient
@@ -84,6 +88,10 @@ func main() {
 	logger.Info("Collecting data for:", "config", sendConfig.Destination.String())
 	recipients, err = collectRecipients(sendConfig)
 	misc.Infof(logger, "Collected %d recipients", len(recipients))
+
+	// Make sure the balances are acceptable
+	verifyAssetBalances(assetsToSend, len(recipients))
+
 	if !sendConfig.Destination.AllowDuplicateAccounts {
 		// Ensure we have unique recipients unless they allow dups
 		uniqRecipients := getUniqueRecipients(recipients)
@@ -92,13 +100,12 @@ func main() {
 			recipients = uniqRecipients
 		}
 	}
-	// sort by nfd name
-	sortRecipients(recipients)
-
-	sendAssets(*sender, assetsToSend, recipients)
+	sortByDepositAccount(recipients)
+	PromptForConfirmation("Are you sure you want to proceed? (y/n): ")
+	sendAssets(*sender, assetsToSend, recipients, vaultNfd)
 }
 
-func sortRecipients(recipients []*Recipient) {
+func sortByDepositAccount(recipients []*Recipient) {
 	// sort the recipients by deposit account
 	sort.Slice(recipients, func(i, j int) bool {
 		return recipients[i].DepositAccount < recipients[j].DepositAccount
@@ -121,12 +128,12 @@ func getUniqueRecipients(recipients []*Recipient) []*Recipient {
 
 func collectRecipients(config *BatchSendConfig) ([]*Recipient, error) {
 	var (
-		nfds      []*nfdapi.NfdRecord
-		err       error
-		numToPick int
+		nfdsToChooseFrom []*nfdapi.NfdRecord
+		err              error
+		numToPick        int
 	)
 	if config.Destination.SegmentsOfRoot != "" {
-		nfds, err = getSegmentsOfRoot(config.Destination.SegmentsOfRoot)
+		nfdsToChooseFrom, err = getSegmentsOfRoot(config.Destination.SegmentsOfRoot)
 		if err != nil {
 			return nil, err
 		}
@@ -135,20 +142,23 @@ func collectRecipients(config *BatchSendConfig) ([]*Recipient, error) {
 			log.Fatalln("configured to get segments of a root but then specified wanting only roots! This is an invalid configuration")
 		}
 	} else {
-		// Just grab all 'owned' nfds  - then filter off to those eligible for airdrops
-		nfds, err = getAllNfds(config.Destination.RandomNFDs.OnlyRoots)
+		// Just grab all 'owned' nfdsToChooseFrom  - then filter off to those eligible for airdrops
+		nfdsToChooseFrom, err = getAllNfds(config.Destination.RandomNFDs.OnlyRoots)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if config.Destination.RandomNFDs.Count != 0 {
 		numToPick = config.Destination.RandomNFDs.Count
-		misc.Infof(logger, "Random count of NFDs chosen, count:%d", numToPick)
+		misc.Infof(logger, "Choosing %d random NFDs out of %d", numToPick, len(nfdsToChooseFrom))
 	}
-	if numToPick == 0 {
-		// we're not limiting the count - so we're done
-		recips := make([]*Recipient, 0, len(nfds))
-		for _, nfd := range nfds {
+	if numToPick == 0 || len(nfdsToChooseFrom) <= numToPick {
+		if len(nfdsToChooseFrom) <= numToPick {
+			misc.Infof(logger, "..however, the number of nfds to choose from:%d is smaller, so just using all", len(nfdsToChooseFrom))
+		}
+		// we're not limiting the count (or num to choose from < than count they want) - so grab them all
+		recips := make([]*Recipient, 0, len(nfdsToChooseFrom))
+		for _, nfd := range nfdsToChooseFrom {
 			recips = append(recips, &Recipient{
 				NfdName:        nfd.Name,
 				DepositAccount: nfd.DepositAccount,
@@ -156,16 +166,16 @@ func collectRecipients(config *BatchSendConfig) ([]*Recipient, error) {
 		}
 		return recips, nil
 	}
-	// grab random unique nfds up through numToPick
+	// grab random unique nfdsToChooseFrom up through numToPick
 	recipIndices := make(map[int]bool)
 	for len(recipIndices) < numToPick {
-		index := rand.Intn(len(nfds))
+		index := rand.Intn(len(nfdsToChooseFrom))
 		recipIndices[index] = true
 	}
 
 	recips := make([]*Recipient, 0, numToPick)
 	for index := range recipIndices {
-		nfd := nfds[index]
+		nfd := nfdsToChooseFrom[index]
 		recips = append(recips, &Recipient{
 			NfdName:        nfd.Name,
 			DepositAccount: nfd.DepositAccount,
@@ -205,6 +215,19 @@ func fetchAssets(config *BatchSendConfig) ([]*SendAsset, error) {
 	return assetsToSend, nil
 }
 
+func verifyAssetBalances(send []*SendAsset, numRecipients int) {
+	for _, asset := range send {
+		balance := asset.ExistingBalance
+		amountToSend := asset.AmountToSend
+		if asset.IsAmountPerRecip {
+			amountToSend *= float64(numRecipients)
+		}
+		if balance < asset.amountInBaseUnits(amountToSend) {
+			log.Fatalf("Insufficient balance for asset %d (%s): Existing balance: %s, Amount to send: %f", asset.AssetID, asset.AssetParams.UnitName, asset.formattedAmount(balance), amountToSend)
+		}
+	}
+}
+
 func ensureValidParams(network string, sender string) {
 	switch network {
 	case "betanet", "testnet", "mainnet":
@@ -235,10 +258,9 @@ func initSigner(from string) {
 	if from == "" {
 		log.Fatalln("must specify from account!")
 	}
-	// TODO add back later
-	//if !signer.HasAccount(from) {
-	//	log.Fatalf("The from account:%s has no mnemonics specified.", from)
-	//}
+	if !signer.HasAccount(from) {
+		log.Fatalf("The from account:%s has no mnemonics specified.", from)
+	}
 }
 
 func initClients(network string) {

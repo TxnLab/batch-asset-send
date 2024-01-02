@@ -73,7 +73,7 @@ func SuggestedParams(ctx context.Context, logger *slog.Logger, client *algod.Cli
 		txParams types.SuggestedParams
 		err      error
 	)
-	// don't accept no for an answer from this api... just keep trying..
+	// don't accept no for an answer from this api ! just keep trying
 	err = repeat.Repeat(
 		repeat.Fn(func() error {
 			txParams, err = client.SuggestedParams().Do(ctx)

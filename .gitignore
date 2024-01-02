@@ -19,4 +19,5 @@
 
 # Go workspace file
 go.work
-/send.json
+/*.json
+/*.env

@@ -33,10 +33,12 @@ func (dc DestinationChoice) String() string {
 	}
 	if dc.RandomNFDs.OnlyRoots {
 		sb.WriteString(fmt.Sprintf("Grabbing 'roots' only, "))
-
 	}
 	if dc.RandomNFDs.Count != 0 {
 		sb.WriteString(fmt.Sprintf("Limited to maximum of %d recipients", dc.RandomNFDs.Count))
+	}
+	if dc.SegmentsOfRoot == "" && !dc.RandomNFDs.OnlyRoots && dc.RandomNFDs.Count == 0 {
+		sb.WriteString("Sending to ALL owned NFDs")
 	}
 	return sb.String()
 }

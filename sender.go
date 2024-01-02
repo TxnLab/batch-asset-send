@@ -14,6 +14,7 @@ import (
 
 	"github.com/TxnLab/batch-asset-send/lib/algo"
 	"github.com/TxnLab/batch-asset-send/lib/misc"
+	nfdapi "github.com/TxnLab/batch-asset-send/lib/nfdapi/swagger"
 )
 
 const MaxSimultaneousSends = 40
@@ -52,9 +53,10 @@ type SendRequest struct {
 	asset     SendAsset
 	amount    uint64
 	recipient Recipient
+	vaultNfd  *nfdapi.NfdRecord
 }
 
-func sendAssets(sender string, send []*SendAsset, recipients []*Recipient) {
+func sendAssets(sender string, send []*SendAsset, recipients []*Recipient, vaultNfd *nfdapi.NfdRecord) {
 	var (
 		sendRequests = make(chan SendRequest, MaxSimultaneousSends)
 		sendResults  = make(chan *RecipientTransaction, MaxSimultaneousSends)
@@ -67,15 +69,18 @@ func sendAssets(sender string, send []*SendAsset, recipients []*Recipient) {
 	// ensure file appending is possible
 	appendToFile("Starting", "failure.txt")
 	appendToFile("Starting", "success.txt")
-	// Queues to sendResults then closes once done
-	go QueueSends(sendRequests, send, sender, recipients)
-	// Handle parallel results that will soon be coming from the parallel sends
+
+	// Queues to sendRequests then closes the channel once done
+	go QueueSends(sendRequests, send, sender, recipients, vaultNfd)
+
+	// Handle parallel results that will soon be coming from the parallel sends - exiting once handled all sends...
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		for result := range sendResults {
 			misc.Infof(logger, "Send result:%s", result.String())
-			// save off to separate files - success, failure
+			// save off to separate files - success, failure - opening/closing each to allow for clean
+			// exit
 			if result.Error != nil {
 				appendToFile(result.String(), "failure.txt")
 				failures++
@@ -91,12 +96,14 @@ func sendAssets(sender string, send []*SendAsset, recipients []*Recipient) {
 		fanOut.Run(func(val any) error {
 			sendReq := val.(SendRequest)
 			misc.Infof(logger, "  %s: %s", sendReq.recipient.DepositAccount, sendReq.recipient.NfdName)
-			sendResults <- sendAssetToRecipient(sender, &sendReq.params, &sendReq.asset, sendReq.amount, &sendReq.recipient)
+			sendResults <- sendAssetToRecipient(sender, &sendReq)
 			return nil
 		}, send)
 	}
-	fanOut.Wait() // returns once all results are queued..
-	wg.Wait()     // now wait to have processed them all.
+	fanOut.Wait()      // returns once all results are queued..
+	close(sendResults) // we've queued all results at this point
+	wg.Wait()          // now wait to have processed them all.
+
 	if failures > 0 {
 		misc.Infof(logger, "%d successful sends", successes)
 		misc.Infof(logger, "%d FAILED sends - check failure.txt for issues", failures)
@@ -106,7 +113,6 @@ func sendAssets(sender string, send []*SendAsset, recipients []*Recipient) {
 	misc.Infof(logger, "Elapsed time:%v", time.Since(startTime))
 }
 
-// appendToFile adds the specified message as a new line to the specified file
 func appendToFile(message string, filename string) {
 	// open file in append mode
 	file, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
@@ -124,7 +130,7 @@ func appendToFile(message string, filename string) {
 	}
 }
 
-func QueueSends(sendRequests chan SendRequest, send []*SendAsset, sender string, recipients []*Recipient) {
+func QueueSends(sendRequests chan SendRequest, send []*SendAsset, sender string, recipients []*Recipient, vaultNfd *nfdapi.NfdRecord) {
 	var (
 		// Get new params every 30 secs or so
 		txParams = algo.SuggestedParams(ctx, logger, algoClient)
@@ -146,26 +152,34 @@ func QueueSends(sendRequests chan SendRequest, send []*SendAsset, sender string,
 				txParams = algo.SuggestedParams(ctx, logger, algoClient)
 			default:
 			}
-			// queue the send
+			// just queue the request to send
 			sendRequests <- SendRequest{
 				sender:    sender,
 				params:    txParams,
 				asset:     *asset,
 				amount:    baseUnitAmount,
 				recipient: *recipient,
+				vaultNfd:  vaultNfd,
 			}
 		}
 	}
 	close(sendRequests)
 }
 
-func sendAssetToRecipient(sender string, params *types.SuggestedParams, send *SendAsset, baseUnitsToSend uint64, recipient *Recipient) *RecipientTransaction {
+func sendAssetToRecipient(sender string, sendReq *SendRequest) *RecipientTransaction {
 	retReceipt := &RecipientTransaction{
-		sendAsset:       send,
-		baseUnitsToSend: baseUnitsToSend,
-		recip:           recipient}
+		sendAsset:       &sendReq.asset,
+		baseUnitsToSend: sendReq.amount,
+		recip:           &sendReq.recipient}
 
-	txn, err := transaction.MakeAssetTransferTxn(sender, recipient.DepositAccount, baseUnitsToSend, nil, *params, "", send.AssetID)
+	// First, is this a send FROM a vault or from an account?
+	if sendReq.vaultNfd != nil {
+		// sending from vault
+		// TODO - panic for now
+		panic("Sending from vault is not implemented yet")
+	}
+
+	txn, err := transaction.MakeAssetTransferTxn(sender, sendReq.recipient.DepositAccount, sendReq.amount, nil, sendReq.params, "", sendReq.asset.AssetID)
 	if err != nil {
 		retReceipt.Error = fmt.Errorf("MakeAssetTransferTxn fail: %w", err)
 		return retReceipt
