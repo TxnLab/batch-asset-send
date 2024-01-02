@@ -8,11 +8,17 @@ import (
 	"net/url"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/algorand/go-algorand-sdk/v2/client/v2/algod"
+	"github.com/algorand/go-algorand-sdk/v2/types"
+	"github.com/ssgreg/repeat"
 
 	"github.com/TxnLab/batch-asset-send/lib/misc"
 )
+
+// Just do 100 max valid block range
+const DefaultValidRoundRange = 100
 
 func GetAlgoClient(log *slog.Logger, config NetworkConfig) (*algod.Client, error) {
 	var (
@@ -60,4 +66,36 @@ func GetAlgoClient(log *slog.Logger, config NetworkConfig) (*algod.Client, error
 		return nil, fmt.Errorf("failed to get suggested params from algod client, error:%w", err)
 	}
 	return client, nil
+}
+
+func SuggestedParams(ctx context.Context, logger *slog.Logger, client *algod.Client) types.SuggestedParams {
+	var (
+		txParams types.SuggestedParams
+		err      error
+	)
+	// don't accept no for an answer from this api... just keep trying..
+	err = repeat.Repeat(
+		repeat.Fn(func() error {
+			txParams, err = client.SuggestedParams().Do(ctx)
+			if err != nil {
+				return repeat.HintTemporary(err)
+			}
+			return nil
+		}),
+		repeat.StopOnSuccess(),
+		repeat.FnOnError(func(err error) error {
+			misc.Infof(logger, "retrying suggestedparams call, error:%s", err.Error())
+			return err
+		}),
+		repeat.WithDelay(repeat.ExponentialBackoff(1*time.Second).Set()),
+	)
+
+	// move FirstRoundValid back 1 just to cover for different nodes maybe being 'slightly' behind - so we
+	// don't create a transaction starting at round 100 but the node we submit to is only at round 99
+	txParams.FirstRoundValid--
+	txParams.LastRoundValid = txParams.FirstRoundValid + DefaultValidRoundRange
+	// Just set fixed fee for now - we don't want to send during high cost periods anyway.
+	txParams.FlatFee = true
+	txParams.Fee = types.MicroAlgos(txParams.MinFee)
+	return txParams
 }

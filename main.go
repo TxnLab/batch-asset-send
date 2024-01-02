@@ -95,10 +95,7 @@ func main() {
 	// sort by nfd name
 	sortRecipients(recipients)
 
-	err = sendAssets(assetsToSend, recipients)
-	if err != nil {
-		logger.Error(fmt.Sprintf("error in asset send, err:%v", err))
-	}
+	sendAssets(*sender, assetsToSend, recipients)
 }
 
 func sortRecipients(recipients []*Recipient) {
@@ -120,28 +117,6 @@ func getUniqueRecipients(recipients []*Recipient) []*Recipient {
 	}
 
 	return uniqueRecipientsList
-}
-
-func sendAssets(send []*SendAsset, recipients []*Recipient) error {
-	for _, asset := range send {
-		var amount float64
-		if asset.IsAmountPerRecip {
-			amount = asset.AmountToSend
-		} else {
-			amount = asset.AmountToSend / float64(len(recipients))
-		}
-		baseUnitAmount := asset.amountInBaseUnits(amount)
-		misc.Infof(logger, "Sending %s of asset %d to %d recipients", asset.formattedAmount(baseUnitAmount), asset.AssetID, len(recipients))
-		for _, recipient := range recipients {
-
-			misc.Infof(logger, "  %s: %s", recipient.DepositAccount, recipient.NfdName)
-			//err := sendAssetToRecipient(asset.AssetID, baseUnitAmount, recipient.DepositAccount)
-			//if err != nil {
-			//	return err
-			//}
-		}
-	}
-	return nil
 }
 
 func collectRecipients(config *BatchSendConfig) ([]*Recipient, error) {
