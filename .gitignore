@@ -21,3 +21,5 @@
 go.work
 /*.json
 /*.env
+success.txt
+failure.txt

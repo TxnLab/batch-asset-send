@@ -172,7 +172,6 @@ func getAssetSendTxns(sender string, sendFromVaultName string, recipient string,
 	var (
 		encodedTxns string
 		err         error
-		nfds        []*nfdapi.NfdRecord
 	)
 
 	if sendFromVaultName == "" && recipientIsVault == false {
@@ -220,7 +219,7 @@ func getAssetSendTxns(sender string, sendFromVaultName string, recipient string,
 		}
 		if err != nil {
 			if rate, match := isRateLimited(err); match {
-				logger.Warn("rate limited", "cur length", len(nfds), "responseDelay", time.Since(start), "waiting", rate.SecsRemaining)
+				logger.Warn("rate limited", "responseDelay", time.Since(start), "waiting", rate.SecsRemaining)
 				time.Sleep(time.Duration(rate.SecsRemaining+1) * time.Second)
 				return repeat.HintTemporary(err)
 			}
