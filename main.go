@@ -134,7 +134,7 @@ func collectRecipients(config *BatchSendConfig, sendingFromVault *nfdapi.NfdReco
 		numToPick        int
 	)
 	if config.Destination.SegmentsOfRoot != "" {
-		nfdsToChooseFrom, err = getSegmentsOfRoot(config.Destination.SegmentsOfRoot)
+		nfdsToChooseFrom, err = getSegmentsOfRoot(config.Destination.SegmentsOfRoot, config.Destination.SendToVaults)
 		if err != nil {
 			return nil, err
 		}

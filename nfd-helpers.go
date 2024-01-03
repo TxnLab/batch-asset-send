@@ -99,7 +99,7 @@ func getAllNfds(onlyRoots bool, requireVaults bool) ([]*nfdapi.NfdRecord, error)
 	return nfds, nil
 }
 
-func getSegmentsOfRoot(rootNfdName string) ([]*nfdapi.NfdRecord, error) {
+func getSegmentsOfRoot(rootNfdName string, requireVaults bool) ([]*nfdapi.NfdRecord, error) {
 	// Fetch root NFD - all we really want is its app id
 	nfd, _, err := api.NfdApi.NfdGetNFD(ctx, rootNfdName, nil)
 	if err != nil {
@@ -107,8 +107,7 @@ func getSegmentsOfRoot(rootNfdName string) ([]*nfdapi.NfdRecord, error) {
 	}
 	misc.Infof(logger, fmt.Sprintf("nfd app id for %s is:%v", nfd.Name, nfd.AppID))
 
-	// brief view is fine for all segments... we just need depositAccount, owner, ...
-	nfds, err := getAllSegments(ctx, nfd.AppID, "")
+	nfds, err := getAllSegments(ctx, nfd.AppID, requireVaults)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -116,7 +115,7 @@ func getSegmentsOfRoot(rootNfdName string) ([]*nfdapi.NfdRecord, error) {
 	return nfds, nil
 }
 
-func getAllSegments(ctx context.Context, parentAppID int64, view string) ([]*nfdapi.NfdRecord, error) {
+func getAllSegments(ctx context.Context, parentAppID int64, requireVaults bool) ([]*nfdapi.NfdRecord, error) {
 	var (
 		offset, limit int32 = 0, 200
 		records       nfdapi.NfdV2SearchRecords
@@ -124,15 +123,11 @@ func getAllSegments(ctx context.Context, parentAppID int64, view string) ([]*nfd
 		nfds          []*nfdapi.NfdRecord
 	)
 
-	if view == "" {
-		view = "brief"
-	}
 	searchOp := func() error {
 		start := time.Now()
 		records, _, err = api.NfdApi.NfdSearchV2(ctx, &nfdapi.NfdApiNfdSearchV2Opts{
 			ParentAppID: optional.NewInt64(parentAppID),
 			State:       optional.NewInterface("owned"),
-			View:        optional.NewString(view),
 			Limit:       optional.NewInt32(limit),
 			Offset:      optional.NewInt32(offset),
 		})
@@ -160,6 +155,12 @@ func getAllSegments(ctx context.Context, parentAppID int64, view string) ([]*nfd
 		for _, record := range *records.Nfds {
 			if record.DepositAccount == "" {
 				continue
+			}
+			if requireVaults {
+				// contract has to be at least 2.11 and not be locked for vault receipt
+				if !IsContractVersionAtLeast(record.Properties.Internal["ver"], 2, 11) || record.Properties.Internal["vaultOptInLocked"] == "1" {
+					continue
+				}
 			}
 			newRecord := record
 			nfds = append(nfds, &newRecord)
