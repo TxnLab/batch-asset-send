@@ -40,6 +40,29 @@ func IsContractVersionAtLeast(version string, major, minor int) bool {
 	return false
 }
 
+func retryNfdApiCalls(meth func() error) error {
+	return repeat.Repeat(
+		repeat.Fn(func() error {
+			err := meth()
+			if err != nil {
+				if rate, match := isRateLimited(err); match {
+					logger.Warn("rate limited", "waiting", rate.SecsRemaining)
+					time.Sleep(time.Duration(rate.SecsRemaining+1) * time.Second)
+					return repeat.HintTemporary(err)
+				}
+				var swaggerError nfdapi.GenericSwaggerError
+				if errors.As(err, &swaggerError) {
+					if moderr, match := swaggerError.Model().(nfdapi.ModelError); match {
+						return fmt.Errorf("message:%s, err:%w", moderr.Message, err)
+					}
+				}
+			}
+			return err
+		}),
+		repeat.StopOnSuccess(),
+	)
+}
+
 func getAllNfds(onlyRoots bool, requireVaults bool) ([]*nfdapi.NfdRecord, error) {
 	var (
 		offset, limit int32 = 0, 200
@@ -48,31 +71,20 @@ func getAllNfds(onlyRoots bool, requireVaults bool) ([]*nfdapi.NfdRecord, error)
 		nfds          []*nfdapi.NfdRecord
 	)
 
-	fetchOp := func() error {
-		start := time.Now()
-		searchOpts := &nfdapi.NfdApiNfdSearchV2Opts{
-			State:  optional.NewInterface("owned"),
-			View:   optional.NewString("brief"),
-			Limit:  optional.NewInt32(limit),
-			Offset: optional.NewInt32(offset),
-		}
-		if onlyRoots {
-			searchOpts.Traits = optional.NewInterface("pristine")
-		}
-		records, _, err = api.NfdApi.NfdSearchV2(ctx, searchOpts)
-		if err != nil {
-			if rate, match := isRateLimited(err); match {
-				logger.Warn("rate limited", "cur length", len(nfds), "responseDelay", time.Since(start), "waiting", rate.SecsRemaining)
-				time.Sleep(time.Duration(rate.SecsRemaining+1) * time.Second)
-				return repeat.HintTemporary(err)
-			}
-			return err
-		}
-		return err
-	}
-
 	for ; ; offset += limit {
-		err = repeat.Repeat(repeat.Fn(fetchOp), repeat.StopOnSuccess())
+		err = retryNfdApiCalls(func() error {
+			searchOpts := &nfdapi.NfdApiNfdSearchV2Opts{
+				State:  optional.NewInterface("owned"),
+				View:   optional.NewString("brief"),
+				Limit:  optional.NewInt32(limit),
+				Offset: optional.NewInt32(offset),
+			}
+			if onlyRoots {
+				searchOpts.Traits = optional.NewInterface("pristine")
+			}
+			records, _, err = api.NfdApi.NfdSearchV2(ctx, searchOpts)
+			return err
+		})
 
 		if err != nil {
 			return nil, fmt.Errorf("error while fetching segments: %w", err)
@@ -123,27 +135,16 @@ func getAllSegments(ctx context.Context, parentAppID int64, requireVaults bool) 
 		nfds          []*nfdapi.NfdRecord
 	)
 
-	searchOp := func() error {
-		start := time.Now()
-		records, _, err = api.NfdApi.NfdSearchV2(ctx, &nfdapi.NfdApiNfdSearchV2Opts{
-			ParentAppID: optional.NewInt64(parentAppID),
-			State:       optional.NewInterface("owned"),
-			Limit:       optional.NewInt32(limit),
-			Offset:      optional.NewInt32(offset),
-		})
-		if err != nil {
-			if rate, match := isRateLimited(err); match {
-				logger.Warn("rate limited", "cur length", len(nfds), "responseDelay", time.Since(start), "waiting", rate.SecsRemaining)
-				time.Sleep(time.Duration(rate.SecsRemaining+1) * time.Second)
-				return repeat.HintTemporary(err)
-			}
-			return err
-		}
-		return err
-	}
-
 	for ; ; offset += limit {
-		err = repeat.Repeat(repeat.Fn(searchOp), repeat.StopOnSuccess())
+		err = retryNfdApiCalls(func() error {
+			records, _, err = api.NfdApi.NfdSearchV2(ctx, &nfdapi.NfdApiNfdSearchV2Opts{
+				ParentAppID: optional.NewInt64(parentAppID),
+				State:       optional.NewInterface("owned"),
+				Limit:       optional.NewInt32(limit),
+				Offset:      optional.NewInt32(offset),
+			})
+			return err
+		})
 
 		if err != nil {
 			return nil, fmt.Errorf("error while fetching segments: %w", err)
@@ -185,8 +186,7 @@ func getAssetSendTxns(sender string, sendFromVaultName string, recipient string,
 		return txnid, signedBytes, err
 	}
 
-	fetchOp := func() error {
-		start := time.Now()
+	err = retryNfdApiCalls(func() error {
 		if sendFromVaultName != "" {
 			receiverType := "account"
 			if recipientIsVault {
@@ -218,23 +218,9 @@ func getAssetSendTxns(sender string, sendFromVaultName string, recipient string,
 				panic("never should have arrived here - pre-checks should have handled")
 			}
 		}
-		if err != nil {
-			if rate, match := isRateLimited(err); match {
-				logger.Warn("rate limited", "responseDelay", time.Since(start), "waiting", rate.SecsRemaining)
-				time.Sleep(time.Duration(rate.SecsRemaining+1) * time.Second)
-				return repeat.HintTemporary(err)
-			}
-			var swaggerError nfdapi.GenericSwaggerError
-			if errors.As(err, &swaggerError) {
-				if moderr, match := swaggerError.Model().(nfdapi.ModelError); match {
-					return fmt.Errorf("message:%s, err:%w", moderr.Message, err)
-				}
-			}
-			return err
-		}
 		return err
-	}
-	err = repeat.Repeat(repeat.Fn(fetchOp), repeat.StopOnSuccess())
+	})
+
 	if err != nil {
 		return "", nil, fmt.Errorf("error in NfdSendToVault call: %w", err)
 	}

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/v2/client/v2/algod"
+	"github.com/algorand/go-algorand-sdk/v2/client/v2/common"
 	"github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/ssgreg/repeat"
 
@@ -24,6 +25,7 @@ func GetAlgoClient(log *slog.Logger, config NetworkConfig) (*algod.Client, error
 	var (
 		apiURL     string
 		apiToken   string
+		apiHeaders []*common.Header
 		serverAddr *url.URL
 		err        error
 	)
@@ -38,6 +40,13 @@ func GetAlgoClient(log *slog.Logger, config NetworkConfig) (*algod.Client, error
 	} else {
 		apiURL = config.NodeURL
 		apiToken = config.NodeToken
+		// Convert config.NodeHeaders map into []*common.Header slice
+		for key, value := range config.NodeHeaders {
+			apiHeaders = append(apiHeaders, &common.Header{
+				Key:   key,
+				Value: value,
+			})
+		}
 		// Strip off trailing slash if present in url which the Algorand client doesn't handle properly
 		apiURL = strings.TrimRight(apiURL, "/")
 	}
@@ -56,7 +65,7 @@ func GetAlgoClient(log *slog.Logger, config NetworkConfig) (*algod.Client, error
 	customTransport.MaxIdleConns = 100
 	customTransport.MaxConnsPerHost = 100
 	customTransport.MaxIdleConnsPerHost = 100
-	client, err := algod.MakeClientWithTransport(serverAddr.String(), apiToken, nil, customTransport)
+	client, err := algod.MakeClientWithTransport(serverAddr.String(), apiToken, apiHeaders, customTransport)
 	if err != nil {
 		return nil, fmt.Errorf(`failed to make algod client (url:%s), error:%w`, serverAddr.String(), err)
 	}

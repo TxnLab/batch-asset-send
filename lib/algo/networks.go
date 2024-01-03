@@ -18,8 +18,9 @@ type NetworkConfig struct {
 
 	NFDAPIUrl string
 
-	NodeURL   string
-	NodeToken string
+	NodeURL     string
+	NodeToken   string
+	NodeHeaders map[string]string
 
 	KMDURL   string
 	KMDToken string
@@ -49,6 +50,17 @@ func GetNetworkConfig(network string) NetworkConfig {
 	nodeToken := misc.GetSecret("ALGO_ALGOD_TOKEN")
 	if nodeToken != "" {
 		cfg.NodeToken = nodeToken
+	}
+	NodeHeaders := misc.GetSecret("ALGO_ALGOD_HEADERS")
+	// parse NodeHeaders from key:value,[key:value...] pairs and put into cfg.NodeHeaders map
+	cfg.NodeHeaders = map[string]string{}
+	for _, header := range strings.Split(NodeHeaders, ",") {
+		parts := strings.SplitN(header, ":", 2) // Just split on first : - they can have :'s in value.
+		if len(parts) == 2 {
+			key := strings.TrimSpace(parts[0])
+			value := strings.TrimSpace(parts[1])
+			cfg.NodeHeaders[key] = value
+		}
 	}
 
 	kMDURL := misc.GetSecret("ALGO_KMD_URL")

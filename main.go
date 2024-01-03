@@ -22,14 +22,15 @@ import (
 
 // This is simple CLI - global vars here are fine... get over it.
 var (
-	ctx           = context.Background()
-	algoClient    *algod.Client
-	api           *nfdapi.APIClient
-	logger        *slog.Logger
-	signer        algo.MultipleWalletSigner
-	sendConfig    *BatchSendConfig
-	vaultNfd      *nfdapi.NfdRecord
-	sourceAccount types.Address // the account we truly send from -used for fetching sender balances, etc.
+	ctx                  = context.Background()
+	algoClient           *algod.Client
+	api                  *nfdapi.APIClient
+	logger               *slog.Logger
+	signer               algo.MultipleWalletSigner
+	sendConfig           *BatchSendConfig
+	vaultNfd             *nfdapi.NfdRecord
+	sourceAccount        types.Address // the account we truly send from -used for fetching sender balances, etc.
+	maxSimultaneousSends = 40
 )
 
 func main() {
@@ -38,6 +39,7 @@ func main() {
 	vault := flag.String("vault", "", "Don't send from sender account but from the named NFD vault that sender is owner of")
 	config := flag.String("config", "send.json", "path to json config file specifying what to send and to what recipients")
 	dryrun := flag.Bool("dryrun", false, "dryrun just shows what would've been sent but doesn't actually send")
+	parallel := flag.Int("parallel", 40, "maximum number of sends to do at once - target node may limit")
 	flag.Parse()
 
 	initLogger()
@@ -45,6 +47,8 @@ func main() {
 	loadEnvironmentSettings()
 	initSigner(*sender)   // also ensures we have mnemonics for it
 	initClients(*network) // algod and nfd api
+
+	maxSimultaneousSends = *parallel
 
 	sourceAccount, _ = types.DecodeAddress(*sender)
 

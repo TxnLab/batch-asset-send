@@ -11,13 +11,12 @@ import (
 	"github.com/algorand/go-algorand-sdk/v2/transaction"
 	"github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/mailgun/holster/v4/syncutil"
+	"github.com/ssgreg/repeat"
 
 	"github.com/TxnLab/batch-asset-send/lib/algo"
 	"github.com/TxnLab/batch-asset-send/lib/misc"
 	nfdapi "github.com/TxnLab/batch-asset-send/lib/nfdapi/swagger"
 )
-
-const MaxSimultaneousSends = 40
 
 // RecipientTransaction is for tracking what was sent or what was meant to be sent to each recipient
 type RecipientTransaction struct {
@@ -66,9 +65,9 @@ type SendRequest struct {
 
 func sendAssets(sender string, send []*SendAsset, recipients []*Recipient, vaultNfd *nfdapi.NfdRecord, dryRun bool) {
 	var (
-		sendRequests = make(chan SendRequest, MaxSimultaneousSends)
-		sendResults  = make(chan *RecipientTransaction, MaxSimultaneousSends)
-		fanOut       = syncutil.NewFanOut(MaxSimultaneousSends)
+		sendRequests = make(chan SendRequest, maxSimultaneousSends)
+		sendResults  = make(chan *RecipientTransaction, maxSimultaneousSends)
+		fanOut       = syncutil.NewFanOut(maxSimultaneousSends)
 		wg           sync.WaitGroup
 		successes    int
 		failures     int
@@ -218,13 +217,42 @@ func sendAssetToRecipient(sender string, sendReq *SendRequest, dryRun bool) *Rec
 }
 
 func sendAndWaitTxns(txnBytes []byte, waitRounds uint64) (models.PendingTransactionInfoResponse, error) {
-	txid, err := algoClient.SendRawTransaction(txnBytes).Do(ctx)
+	var (
+		txid string
+		resp models.PendingTransactionInfoResponse
+		err  error
+	)
+	err = retryAlgoCalls(func() error {
+		txid, err = algoClient.SendRawTransaction(txnBytes).Do(ctx)
+		return err
+	})
 	if err != nil {
 		return models.PendingTransactionInfoResponse{}, fmt.Errorf("sendAndWaitTxns failed to send txns: %w", err)
 	}
-	resp, err := transaction.WaitForConfirmation(algoClient, txid, waitRounds, ctx)
+
+	err = retryAlgoCalls(func() error {
+		resp, err = transaction.WaitForConfirmation(algoClient, txid, waitRounds, ctx)
+		return err
+	})
 	if err != nil {
 		return models.PendingTransactionInfoResponse{}, fmt.Errorf("sendAndWaitTxns failure in confirmation wait: %w", err)
 	}
 	return resp, nil
+}
+
+func retryAlgoCalls(meth func() error) error {
+	return repeat.Repeat(
+		repeat.Fn(func() error {
+			err := meth()
+			if err != nil {
+				errStr := err.Error()
+				if strings.Contains(errStr, "429") || strings.Contains(errStr, "502") || strings.Contains(errStr, "503") {
+					return repeat.HintTemporary(err)
+				}
+			}
+			return err
+		}),
+		repeat.StopOnSuccess(),
+		repeat.WithDelay(repeat.ExponentialBackoff(1*time.Second).Set()),
+	)
 }
