@@ -21,6 +21,9 @@ type DestinationChoice struct {
 		// If doing random, but SegmentsOfRoot isn't set then only pick random roots
 		OnlyRoots bool `json:"onlyRoots"`
 	} `json:"randomNFDs"`
+
+	SendToVaults bool `json:"sendToVaults"`
+
 	// If user w/ single account owns 10 eligible NFDS do they get 10 drops or just 1.  Defaults to just going to
 	// unique accounts.  Set to true to send '1' per nfd regardless of final account
 	AllowDuplicateAccounts bool `json:"allowDuplicateAccounts"`
@@ -28,6 +31,9 @@ type DestinationChoice struct {
 
 func (dc DestinationChoice) String() string {
 	var sb strings.Builder
+	if dc.SendToVaults {
+		sb.WriteString("Sending TO vaults, ")
+	}
 	if dc.SegmentsOfRoot != "" {
 		sb.WriteString(fmt.Sprintf("Segments of root:%s, ", dc.SegmentsOfRoot))
 	}

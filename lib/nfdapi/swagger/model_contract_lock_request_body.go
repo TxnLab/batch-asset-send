@@ -12,6 +12,6 @@ package swagger
 type ContractLockRequestBody struct {
 	// Whether to lock (true), or unlock (false)
 	Lock bool `json:"lock"`
-	// SenderUid of transaction - needs to be owner of NFD
+	// Sender of transaction - needs to be owner of NFD
 	Sender string `json:"sender"`
 }

@@ -33,9 +33,17 @@ type RecipientTransaction struct {
 }
 
 func (rt *RecipientTransaction) String() string {
+	if rt == nil {
+		return "{nil}"
+	}
 	var retStr strings.Builder
-	retStr.WriteString(fmt.Sprintf("Recipient: %s, Asset ID: %d, Amount: %s, ",
-		rt.recip.DepositAccount,
+
+	if rt.recip.SendToVault {
+		retStr.WriteString(fmt.Sprintf("Recipient: %s VAULT, ", rt.recip.NfdName))
+	} else {
+		retStr.WriteString(fmt.Sprintf("Recipient: %s (DEPOSIT), ", rt.recip.NfdName))
+	}
+	retStr.WriteString(fmt.Sprintf("Asset ID: %d, Amount: %s, ",
 		rt.sendAsset.AssetID,
 		rt.sendAsset.formattedAmount(rt.baseUnitsToSend)))
 	if rt.Error != nil {
@@ -48,15 +56,15 @@ func (rt *RecipientTransaction) String() string {
 }
 
 type SendRequest struct {
-	sender    string
-	params    types.SuggestedParams
-	asset     SendAsset
-	amount    uint64
-	recipient Recipient
-	vaultNfd  *nfdapi.NfdRecord
+	sender           string
+	params           types.SuggestedParams
+	asset            SendAsset
+	amount           uint64
+	recipient        Recipient
+	sendFromVaultNFD *nfdapi.NfdRecord
 }
 
-func sendAssets(sender string, send []*SendAsset, recipients []*Recipient, vaultNfd *nfdapi.NfdRecord) {
+func sendAssets(sender string, send []*SendAsset, recipients []*Recipient, vaultNfd *nfdapi.NfdRecord, dryRun bool) {
 	var (
 		sendRequests = make(chan SendRequest, MaxSimultaneousSends)
 		sendResults  = make(chan *RecipientTransaction, MaxSimultaneousSends)
@@ -96,7 +104,7 @@ func sendAssets(sender string, send []*SendAsset, recipients []*Recipient, vault
 		fanOut.Run(func(val any) error {
 			sendReq := val.(SendRequest)
 			misc.Infof(logger, "  %s: %s", sendReq.recipient.DepositAccount, sendReq.recipient.NfdName)
-			sendResults <- sendAssetToRecipient(sender, &sendReq)
+			sendResults <- sendAssetToRecipient(sender, &sendReq, dryRun)
 			return nil
 		}, send)
 	}
@@ -130,7 +138,7 @@ func appendToFile(message string, filename string) {
 	}
 }
 
-func QueueSends(sendRequests chan SendRequest, send []*SendAsset, sender string, recipients []*Recipient, vaultNfd *nfdapi.NfdRecord) {
+func QueueSends(sendRequests chan SendRequest, send []*SendAsset, sender string, recipients []*Recipient, sendFromVaultNFD *nfdapi.NfdRecord) {
 	var (
 		// Get new params every 30 secs or so
 		txParams = algo.SuggestedParams(ctx, logger, algoClient)
@@ -154,49 +162,59 @@ func QueueSends(sendRequests chan SendRequest, send []*SendAsset, sender string,
 			}
 			// just queue the request to send
 			sendRequests <- SendRequest{
-				sender:    sender,
-				params:    txParams,
-				asset:     *asset,
-				amount:    baseUnitAmount,
-				recipient: *recipient,
-				vaultNfd:  vaultNfd,
+				sender:           sender,
+				params:           txParams,
+				asset:            *asset,
+				amount:           baseUnitAmount,
+				recipient:        *recipient,
+				sendFromVaultNFD: sendFromVaultNFD,
 			}
 		}
 	}
 	close(sendRequests)
 }
 
-func sendAssetToRecipient(sender string, sendReq *SendRequest) *RecipientTransaction {
+func sendAssetToRecipient(sender string, sendReq *SendRequest, dryRun bool) *RecipientTransaction {
+	var sendFromVaultName string
+
 	retReceipt := &RecipientTransaction{
 		sendAsset:       &sendReq.asset,
 		baseUnitsToSend: sendReq.amount,
 		recip:           &sendReq.recipient}
 
 	// First, is this a send FROM a vault or from an account?
-	if sendReq.vaultNfd != nil {
-		// sending from vault
-		// TODO - panic for now
-		panic("Sending from vault is not implemented yet")
+	if sendReq.sendFromVaultNFD != nil {
+		sendFromVaultName = sendReq.sendFromVaultNFD.Name
 	}
 
-	txn, err := transaction.MakeAssetTransferTxn(sender, sendReq.recipient.DepositAccount, sendReq.amount, nil, sendReq.params, "", sendReq.asset.AssetID)
-	if err != nil {
-		retReceipt.Error = fmt.Errorf("MakeAssetTransferTxn fail: %w", err)
+	// Call NFD api to do the work for us (prob get rate limited - but handle that as well)
+	recipAsString := sendReq.recipient.DepositAccount
+	if sendReq.recipient.SendToVault {
+		recipAsString = sendReq.recipient.NfdName
+	}
+	if dryRun {
+		senderStr := sender
+		if sendFromVaultName != "" {
+			senderStr = sendFromVaultName + " vault"
+		}
+		misc.Infof(logger, "DryRun: Would send %s of %s from %s to %s", sendReq.asset.formattedAmount(sendReq.amount), sendReq.asset.AssetParams.UnitName, senderStr, recipAsString)
 		return retReceipt
 	}
-	txnid, signedBytes, err := signer.SignWithAccount(ctx, txn, sender)
+
+	txnId, signedBytes, err := getAssetSendTxns(sender, sendFromVaultName, recipAsString, sendReq.recipient.SendToVault, sendReq.asset.AssetID, sendReq.amount, sendReq.params)
 	if err != nil {
-		retReceipt.Error = fmt.Errorf("SignWithAccount fail: %w", err)
+		retReceipt.Error = fmt.Errorf("failure getting txns: %w", err)
 		return retReceipt
 	}
-	pendResponse, err := sendAndWaitTxns(signedBytes, uint64(txn.LastValid-txn.FirstValid))
+
+	pendResponse, err := sendAndWaitTxns(signedBytes, uint64(sendReq.params.LastRoundValid-sendReq.params.FirstRoundValid))
 	if err != nil {
 		retReceipt.Error = fmt.Errorf("waiting for txn: %w", err)
 		return retReceipt
 	}
 	retReceipt.Success.round = pendResponse.ConfirmedRound
-	retReceipt.Success.txid = txnid
-	return nil
+	retReceipt.Success.txid = txnId
+	return retReceipt
 }
 
 func sendAndWaitTxns(txnBytes []byte, waitRounds uint64) (models.PendingTransactionInfoResponse, error) {

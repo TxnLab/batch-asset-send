@@ -11,7 +11,7 @@ package swagger
 
 // Donation contains basic information about donation totals to specific addresses from accounts related to an NFD
 type Donation struct {
-	// SenderUid or Receiver Algorand address depending on request
+	// Sender or Receiver Algorand address depending on request
 	Address string `json:"address"`
 	// Total donation in microAlgos
 	Total int32 `json:"total"`

@@ -11,9 +11,9 @@ package swagger
 
 type SendFromVaultRequestBody struct {
 	// Base amount (in base units of specified asset - so decimals must be considered) of asset to send.   If multiple assets are specified, amount is should be 0 as ALL of each are sent and closed out
-	Amount int32 `json:"amount"`
+	Amount uint64 `json:"amount"`
 	// Algorand ASA IDs to transfer FROM vault - use asset 0 to send ALGO.  Specifying multiple assets means ALL of each are sent and amount is ignored. If receiver is a vault and needs to opt-in, then need MBR/opt-in pairs (5 pairs - 8  opt-ins each - 40 assets), then 6 send calls of 7 assets w/ 5 at end for total of 40.  If receiver is already opted-in, then 112 (7 per txn, 16 tnxs) is max.
-	Assets []int32 `json:"assets"`
+	Assets []uint64 `json:"assets"`
 	// Optional note to include in asset send transaction
 	Note string `json:"note,omitempty"`
 	// Algorand account or NFD Name (if vault receiver) the asset(s) should be sent to
@@ -22,6 +22,6 @@ type SendFromVaultRequestBody struct {
 	ReceiverCanSign bool `json:"receiverCanSign,omitempty"`
 	// Account or NFD Vault the asset should be sent to (if allowed)
 	ReceiverType string `json:"receiverType,omitempty"`
-	// SenderUid of transaction, must be NFD owner
+	// Sender of transaction, must be NFD owner
 	Sender string `json:"sender"`
 }

@@ -16,47 +16,58 @@ import (
 	"github.com/algorand/go-algorand-sdk/v2/types"
 )
 
-func decodeAndSignTransactions(keys *localKeyStore, txnResponse string) ([]byte, error) {
+// DecodeAndSignNFDTransactions decodes and signs transactions that came from an NFD API for user signing, signing each
+// transaction which needs signed using the given signer
+func DecodeAndSignNFDTransactions(nfdnTxnResponse string, signer MultipleWalletSigner) (string, []byte, error) {
 	type TxnPair [2]string
 	var (
-		txns []TxnPair
-		err  error
-		resp []byte
+		txns       []TxnPair
+		err        error
+		resp       []byte
+		firstTxnId string
 	)
 
-	err = json.Unmarshal([]byte(txnResponse), &txns)
+	// First trim/unquote the string.
+	err = json.Unmarshal([]byte(nfdnTxnResponse), &txns)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 	for i, txn := range txns {
 		rawBytes, err := base64.StdEncoding.DecodeString(txn[1])
 		if err != nil {
 			log.Fatal("Error decoding txn:", i, " error:", err)
 		}
-		bytes := decodeAndSignTransaction(keys, txn[0], rawBytes)
+		txnId, bytes, err := decodeAndSignTransaction(signer, txn[0], rawBytes)
+		if err != nil {
+			return "", nil, err
+		}
 		resp = append(resp, bytes...)
+		if i == 0 {
+			firstTxnId = txnId
+		}
 	}
-	return resp, nil
+	return firstTxnId, resp, nil
 }
 
-func decodeAndSignTransaction(keys *localKeyStore, txnType string, msgPackBytes []byte) []byte {
+func decodeAndSignTransaction(signer MultipleWalletSigner, txnType string, msgPackBytes []byte) (string, []byte, error) {
 	var (
 		uTxn types.Transaction
 	)
 
 	if txnType == "s" {
-		return msgPackBytes
+		// Already a signed txn
+		return "", msgPackBytes, nil
 	}
 	dec := msgpack.NewDecoder(bytes.NewReader(msgPackBytes))
 	err := dec.Decode(&uTxn)
 	if err != nil {
-		log.Fatal("error in unmarshalling :", msgPackBytes, " error:", err)
+		return "", nil, fmt.Errorf("error in unmarshalling, error: %w", err)
 	}
-	_, bytes, err := keys.SignWithAccount(context.Background(), uTxn, uTxn.Sender.String())
+	txnid, bytes, err := signer.SignWithAccount(context.Background(), uTxn, uTxn.Sender.String())
 	if err != nil {
-		log.Fatal("error signing txn for sender:", uTxn.Sender.String(), "error:", err)
+		return "", nil, fmt.Errorf("error signing txn for sender:%s, error: %w", uTxn.Sender.String(), err)
 	}
-	return bytes
+	return txnid, bytes, nil
 }
 
 func sendAndWaitTxns(ctx context.Context, log *slog.Logger, algoClient *algod.Client, txnBytes []byte) (models.PendingTransactionInfoResponse, error) {

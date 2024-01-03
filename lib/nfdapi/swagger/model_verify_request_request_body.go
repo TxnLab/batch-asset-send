@@ -13,6 +13,6 @@ type VerifyRequestRequestBody struct {
 	// User defined field name to verify
 	FieldToVerify string `json:"fieldToVerify"`
 	Name          string `json:"name"`
-	// SenderUid of transaction - needs to be owner of NFD
+	// Sender of transaction - needs to be owner of NFD
 	Sender string `json:"sender"`
 }

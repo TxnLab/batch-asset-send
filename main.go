@@ -37,6 +37,7 @@ func main() {
 	sender := flag.String("sender", "", "account which has to sign all transactions - must have mnemonics in a ALGO_MNEMONIC_xx var")
 	vault := flag.String("vault", "", "Don't send from sender account but from the named NFD vault that sender is owner of")
 	config := flag.String("config", "send.json", "path to json config file specifying what to send and to what recipients")
+	dryrun := flag.Bool("dryrun", false, "dryrun just shows what would've been sent but doesn't actually send")
 	flag.Parse()
 
 	initLogger()
@@ -85,7 +86,7 @@ func main() {
 		recipients []*Recipient
 	)
 
-	logger.Info("Collecting data for:", "config", sendConfig.Destination.String())
+	misc.Infof(logger, "Collecting data for config:%s", sendConfig.Destination.String())
 	recipients, err = collectRecipients(sendConfig)
 	misc.Infof(logger, "Collected %d recipients", len(recipients))
 
@@ -102,7 +103,7 @@ func main() {
 	}
 	sortByDepositAccount(recipients)
 	PromptForConfirmation("Are you sure you want to proceed? (y/n): ")
-	sendAssets(*sender, assetsToSend, recipients, vaultNfd)
+	sendAssets(*sender, assetsToSend, recipients, vaultNfd, *dryrun)
 }
 
 func sortByDepositAccount(recipients []*Recipient) {
@@ -143,7 +144,7 @@ func collectRecipients(config *BatchSendConfig) ([]*Recipient, error) {
 		}
 	} else {
 		// Just grab all 'owned' nfdsToChooseFrom  - then filter off to those eligible for airdrops
-		nfdsToChooseFrom, err = getAllNfds(config.Destination.RandomNFDs.OnlyRoots)
+		nfdsToChooseFrom, err = getAllNfds(config.Destination.RandomNFDs.OnlyRoots, config.Destination.SendToVaults)
 		if err != nil {
 			return nil, err
 		}
@@ -159,9 +160,15 @@ func collectRecipients(config *BatchSendConfig) ([]*Recipient, error) {
 		// we're not limiting the count (or num to choose from < than count they want) - so grab them all
 		recips := make([]*Recipient, 0, len(nfdsToChooseFrom))
 		for _, nfd := range nfdsToChooseFrom {
+			deposit := nfd.DepositAccount
+
+			if config.Destination.SendToVaults {
+				deposit = nfd.NfdAccount
+			}
 			recips = append(recips, &Recipient{
 				NfdName:        nfd.Name,
-				DepositAccount: nfd.DepositAccount,
+				DepositAccount: deposit,
+				SendToVault:    config.Destination.SendToVaults,
 			})
 		}
 		return recips, nil
@@ -176,9 +183,15 @@ func collectRecipients(config *BatchSendConfig) ([]*Recipient, error) {
 	recips := make([]*Recipient, 0, numToPick)
 	for index := range recipIndices {
 		nfd := nfdsToChooseFrom[index]
+		deposit := nfd.DepositAccount
+
+		if config.Destination.SendToVaults {
+			deposit = nfd.NfdAccount
+		}
 		recips = append(recips, &Recipient{
 			NfdName:        nfd.Name,
-			DepositAccount: nfd.DepositAccount,
+			DepositAccount: deposit,
+			SendToVault:    config.Destination.SendToVaults,
 		})
 	}
 

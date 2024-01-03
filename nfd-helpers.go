@@ -5,16 +5,42 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"regexp"
+	"strconv"
 	"time"
 
+	"github.com/algorand/go-algorand-sdk/v2/transaction"
+	"github.com/algorand/go-algorand-sdk/v2/types"
 	"github.com/antihax/optional"
 	"github.com/ssgreg/repeat"
 
+	"github.com/TxnLab/batch-asset-send/lib/algo"
 	"github.com/TxnLab/batch-asset-send/lib/misc"
 	nfdapi "github.com/TxnLab/batch-asset-send/lib/nfdapi/swagger"
 )
 
-func getAllNfds(onlyRoots bool) ([]*nfdapi.NfdRecord, error) {
+// IsContractVersionAtLeast returns true if the specified version string (ie: 1.13a) is at least the specified
+// major.minor version.  ie: "2.0" and major.minor of 1.3 would be true - because 2.0 > 1.3
+func IsContractVersionAtLeast(version string, major, minor int) bool {
+	majMinReg := regexp.MustCompile(`^(?P<major>\d+)\.(?P<minor>\d+)`)
+	matches := majMinReg.FindStringSubmatch(version)
+	if matches == nil || len(matches) != 3 {
+		return false
+	}
+	var contractMajor, contractMinor int
+	if val := matches[majMinReg.SubexpIndex("major")]; val != "" {
+		contractMajor, _ = strconv.Atoi(val)
+	}
+	if val := matches[majMinReg.SubexpIndex("minor")]; val != "" {
+		contractMinor, _ = strconv.Atoi(val)
+	}
+	if contractMajor > major || (contractMajor >= major && contractMinor >= minor) {
+		return true
+	}
+	return false
+}
+
+func getAllNfds(onlyRoots bool, requireVaults bool) ([]*nfdapi.NfdRecord, error) {
 	var (
 		offset, limit int32 = 0, 200
 		records       nfdapi.NfdV2SearchRecords
@@ -26,7 +52,7 @@ func getAllNfds(onlyRoots bool) ([]*nfdapi.NfdRecord, error) {
 		start := time.Now()
 		searchOpts := &nfdapi.NfdApiNfdSearchV2Opts{
 			State:  optional.NewInterface("owned"),
-			View:   optional.NewString("tiny"),
+			View:   optional.NewString("brief"),
 			Limit:  optional.NewInt32(limit),
 			Offset: optional.NewInt32(offset),
 		}
@@ -59,6 +85,13 @@ func getAllNfds(onlyRoots bool) ([]*nfdapi.NfdRecord, error) {
 			if record.DepositAccount == "" {
 				continue
 			}
+			if requireVaults {
+				// contract has to be at least 2.11 and not be locked for vault receipt
+				if !IsContractVersionAtLeast(record.Properties.Internal["ver"], 2, 11) || record.Properties.Internal["vaultOptInLocked"] == "1" {
+					continue
+				}
+			}
+
 			newRecord := record
 			nfds = append(nfds, &newRecord)
 		}
@@ -133,6 +166,79 @@ func getAllSegments(ctx context.Context, parentAppID int64, view string) ([]*nfd
 		}
 	}
 	return nfds, nil
+}
+
+func getAssetSendTxns(sender string, sendFromVaultName string, recipient string, recipientIsVault bool, assetID uint64, amount uint64, params types.SuggestedParams) (string, []byte, error) {
+	var (
+		encodedTxns string
+		err         error
+		nfds        []*nfdapi.NfdRecord
+	)
+
+	if sendFromVaultName == "" && recipientIsVault == false {
+		// Not sending from vault, nor sending to a vault - so just plain asset transfer
+		txn, err := transaction.MakeAssetTransferTxn(sender, recipient, amount, nil, params, "", assetID)
+		if err != nil {
+			return "", nil, fmt.Errorf("MakeAssetTransferTxn fail: %w", err)
+		}
+		txnid, signedBytes, err := signer.SignWithAccount(ctx, txn, sender)
+		return txnid, signedBytes, err
+	}
+
+	fetchOp := func() error {
+		start := time.Now()
+		if sendFromVaultName != "" {
+			receiverType := "account"
+			if recipientIsVault {
+				receiverType = "nfdVault"
+			}
+			encodedTxns, _, err = api.NfdApi.NfdSendFromVault(
+				ctx,
+				nfdapi.SendFromVaultRequestBody{
+					Amount:       amount,
+					Assets:       []uint64{assetID},
+					Receiver:     recipient,
+					ReceiverType: receiverType,
+					Sender:       sender, // owner address
+				},
+				sendFromVaultName,
+			)
+		} else {
+			if recipientIsVault {
+				encodedTxns, _, err = api.NfdApi.NfdSendToVault(
+					ctx,
+					nfdapi.SendToVaultRequestBody{
+						Amount: amount,
+						Assets: []uint64{assetID},
+						Sender: sender, // owner address
+					},
+					recipient,
+				)
+			} else {
+				panic("never should have arrived here - pre-checks should have handled")
+			}
+		}
+		if err != nil {
+			if rate, match := isRateLimited(err); match {
+				logger.Warn("rate limited", "cur length", len(nfds), "responseDelay", time.Since(start), "waiting", rate.SecsRemaining)
+				time.Sleep(time.Duration(rate.SecsRemaining+1) * time.Second)
+				return repeat.HintTemporary(err)
+			}
+			var swaggerError nfdapi.GenericSwaggerError
+			if errors.As(err, &swaggerError) {
+				if moderr, match := swaggerError.Model().(nfdapi.ModelError); match {
+					return fmt.Errorf("message:%s, err:%w", moderr.Message, err)
+				}
+			}
+			return err
+		}
+		return err
+	}
+	err = repeat.Repeat(repeat.Fn(fetchOp), repeat.StopOnSuccess())
+	if err != nil {
+		return "", nil, fmt.Errorf("error in NfdSendToVault call: %w", err)
+	}
+	return algo.DecodeAndSignNFDTransactions(encodedTxns, signer)
 }
 
 func isRateLimited(err error) (*nfdapi.RateLimited, bool) {

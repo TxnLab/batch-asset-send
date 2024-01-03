@@ -15,6 +15,6 @@ type OfferRequestBody struct {
 	// Whether to pay the offer amount + fees to the account the NFD is reserved for.  Equivalent to 'gifting' the NFD
 	PayReceiver bool   `json:"payReceiver,omitempty"`
 	ReservedFor string `json:"reservedFor,omitempty"`
-	// SenderUid of transaction - needs to be owner of NFD
+	// Sender of transaction - needs to be owner of NFD
 	Sender string `json:"sender"`
 }

@@ -3197,7 +3197,7 @@ func (a *NfdApiService) NfdKickoff(ctx context.Context, body KickoffRequestBody)
 
 /*
 NfdApiService linkAddress nfd
-Link one or more addresses to an NFD, adding to the reverse-address lookups as well as to this NFD.  SenderUid must be owner, and each added address must be able to be signed for.
+Link one or more addresses to an NFD, adding to the reverse-address lookups as well as to this NFD.  Sender must be owner, and each added address must be able to be signed for.
   - @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
   - @param body
   - @param name
@@ -5704,7 +5704,7 @@ func (a *NfdApiService) NfdTwitterLeaders(ctx context.Context, localVarOptionals
 
 /*
 NfdApiService unlinkAddress nfd
-UnLink one or more addresses to an NFD, adding to the reverse-address lookups as well as to this NFD.  SenderUid must be owner, and each added address must be able to be signed for.
+UnLink one or more addresses to an NFD, adding to the reverse-address lookups as well as to this NFD.  Sender must be owner, and each added address must be able to be signed for.
   - @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
   - @param body
   - @param name

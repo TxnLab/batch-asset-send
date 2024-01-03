@@ -18,6 +18,6 @@ type VaultOptInLockRequestBody struct {
 	Lock bool `json:"lock"`
 	// If unlocking vault, specify a time to automatically re-lock the vault.  This allows an unlock that only lasts for a paticular amount of time.  The time specifies the moment the vault should re-lock.
 	ReLockAt time.Time `json:"reLockAt,omitempty"`
-	// SenderUid of transaction - needs to be owner of NFD
+	// Sender of transaction - needs to be owner of NFD
 	Sender string `json:"sender"`
 }

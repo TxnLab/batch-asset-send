@@ -10,6 +10,6 @@
 package swagger
 
 type RescindOfferRequestBody struct {
-	// SenderUid of transaction - needs to be owner of NFD
+	// Sender of transaction - needs to be owner of NFD
 	Sender string `json:"sender"`
 }
