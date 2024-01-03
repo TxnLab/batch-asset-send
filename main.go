@@ -87,7 +87,7 @@ func main() {
 	)
 
 	misc.Infof(logger, "Collecting data for config:%s", sendConfig.Destination.String())
-	recipients, err = collectRecipients(sendConfig)
+	recipients, err = collectRecipients(sendConfig, vaultNfd)
 	misc.Infof(logger, "Collected %d recipients", len(recipients))
 
 	// Make sure the balances are acceptable
@@ -127,7 +127,7 @@ func getUniqueRecipients(recipients []*Recipient) []*Recipient {
 	return uniqueRecipientsList
 }
 
-func collectRecipients(config *BatchSendConfig) ([]*Recipient, error) {
+func collectRecipients(config *BatchSendConfig, sendingFromVault *nfdapi.NfdRecord) ([]*Recipient, error) {
 	var (
 		nfdsToChooseFrom []*nfdapi.NfdRecord
 		err              error
@@ -164,6 +164,9 @@ func collectRecipients(config *BatchSendConfig) ([]*Recipient, error) {
 
 			if config.Destination.SendToVaults {
 				deposit = nfd.NfdAccount
+				if sendingFromVault != nil && sendingFromVault.NfdAccount == deposit {
+					continue // don't send to self.
+				}
 			}
 			recips = append(recips, &Recipient{
 				NfdName:        nfd.Name,
@@ -187,6 +190,9 @@ func collectRecipients(config *BatchSendConfig) ([]*Recipient, error) {
 
 		if config.Destination.SendToVaults {
 			deposit = nfd.NfdAccount
+			if sendingFromVault != nil && sendingFromVault.NfdAccount == deposit {
+				continue // don't send to self.
+			}
 		}
 		recips = append(recips, &Recipient{
 			NfdName:        nfd.Name,
@@ -248,12 +254,6 @@ func ensureValidParams(network string, sender string) {
 	default:
 		flag.Usage()
 		log.Fatalln("unknown network:", network)
-	}
-
-	_, err := types.DecodeAddress(sender)
-	if err != nil {
-		flag.Usage()
-		log.Fatalln("invalid sender address:", err)
 	}
 }
 
