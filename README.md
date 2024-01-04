@@ -6,6 +6,7 @@
 2. [Setup](#setup)
 2. [Command Line Arguments](#command-line-arguments)
 3. [JSON Configuration](#json-configuration)
+4. [Environment File](#environment-file)
 
 ## Introduction
 
@@ -69,6 +70,8 @@ Usage of ./batch-asset-send:
 The minimum parameters for use are the -sender parameter.
 This specifies the public address of the account which will be **signing** the transactions.  If using the -vault {nfd name} argument, then it must be the owner of the NFD.  Most arguments have sensible defaults.
 
+The sender MUST have mnemonics defined either as an ALGO_MNEMONIC environment variable or in a local .env file setting the same.
+
 The parameters you specify for what to send MUST be specified in a json config file.
 The default is to read from a send.json file in the current directory, but this can be overriden on the command line.
 
@@ -93,7 +96,7 @@ Some of these options are conflicting to be specified together.
       "count": 100,
       "onlyRoots": false
     },
-    "sendToVaults": true,
+    "sendToVaults": true
   }
 }
 ```
@@ -115,6 +118,20 @@ Some of these options are conflicting to be specified together.
 - `sendToVaults`: Determines whether to send to vaults.
   - This is a key option and for most 'aidrops' should be chosen.  The recipient doesn't have to be opted-in before-hand.  As the sender you have to pay the .1 MBR fee per asset (only if their vault isn't already opted-in).
 
+## Environment File
+
+You may specify multiple options in an .env file, or in the local environment.
+
+Some of the supported properties are:
+
+* ALGORAND_DATA
+  * If specified, tries to load node configuration data from the algod.net / algod.token file in this dir.
+* ALGO_NFD_URL
+  * The https:// address of the NFD API (defaulted for you for each -network)
+* ALGO_ALGOD_URL / ALGO_ALGOD_TOKEN
+  * URL to algod endpoint and token (if needed) - defaults to algonode
+* ALGO_ALGOD_HEADERS
+  * Rarely needed - but allows header:value,header:value pairs - adds to headers passed to algod node requests.
 
 ---
 ### Note on use of NFD Api

@@ -21,12 +21,6 @@ type NetworkConfig struct {
 	NodeURL     string
 	NodeToken   string
 	NodeHeaders map[string]string
-
-	KMDURL   string
-	KMDToken string
-
-	IndexerURL   string
-	IndexerToken string
 }
 
 func GetNetworkConfig(network string) NetworkConfig {
@@ -63,16 +57,6 @@ func GetNetworkConfig(network string) NetworkConfig {
 		}
 	}
 
-	kMDURL := misc.GetSecret("ALGO_KMD_URL")
-	if kMDURL != "" {
-		cfg.KMDURL = kMDURL
-	}
-
-	kMDToken := misc.GetSecret("ALGO_KMD_TOKEN")
-	if kMDToken != "" {
-		cfg.KMDToken = kMDToken
-	}
-
 	return cfg
 }
 
@@ -82,15 +66,12 @@ func getDefaults(network string) NetworkConfig {
 	case "mainnet":
 		cfg.NFDAPIUrl = "https://api.nf.domains"
 		cfg.NodeURL = "https://mainnet-api.algonode.cloud"
-		cfg.IndexerURL = "https://mainnet-idx.algonode.cloud"
 	case "testnet":
 		cfg.NFDAPIUrl = "https://api.testnet.nf.domains"
 		cfg.NodeURL = "https://testnet-api.algonode.cloud"
-		cfg.IndexerURL = "https://testnet-idx.algonode.cloud"
 	case "betanet":
 		cfg.NFDAPIUrl = "https://api.betanet.nf.domains"
 		cfg.NodeURL = "https://betanet-api.algonode.cloud"
-		cfg.IndexerURL = "https://betanet-idx.algonode.cloud"
 	}
 	return cfg
 }
