@@ -7,6 +7,7 @@
 2. [Command Line Arguments](#command-line-arguments)
 3. [JSON Configuration](#json-configuration)
 4. [Environment File](#environment-file)
+5. [Results](#results)
 
 ## Introduction
 
@@ -132,6 +133,10 @@ Some of the supported properties are:
   * URL to algod endpoint and token (if needed) - defaults to algonode
 * ALGO_ALGOD_HEADERS
   * Rarely needed - but allows header:value,header:value pairs - adds to headers passed to algod node requests.
+
+## Results
+
+It's simple but currently the results of each send are appended to success.txt and failure.txt files in the current directory. 
 
 ---
 ### Note on use of NFD Api
