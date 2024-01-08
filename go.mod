@@ -9,7 +9,7 @@ require (
 	github.com/mailgun/holster/v4 v4.16.3
 	github.com/ssgreg/repeat v1.5.1
 	golang.org/x/crypto v0.17.0
-	golang.org/x/oauth2 v0.15.0
+	golang.org/x/oauth2 v0.16.0
 )
 
 require (
