@@ -40,6 +40,30 @@ func IsContractVersionAtLeast(version string, major, minor int) bool {
 	return false
 }
 
+// IsVaultAutoOptInLockedForSender returns true if the specified 'sender' address
+// would be allowed to send to the NFDs vault.  This is basically an off-chain
+// validation of what the contract itself will do, to save some trouble and skip sending to a vault that won't
+// allow it.
+// "0" or missing unlocked, "1" explicitly locked, >1 a timestamp specifying unlocked 'until' specified timestamp
+func IsVaultAutoOptInLockedForSender(n *nfdapi.NfdRecord, sender string) bool {
+	lockedVal, ok := n.Properties.Internal["vaultOptInLocked"]
+	if !ok {
+		// not found - defaults to UNLOCKED
+		return false
+	}
+	// explicitly unlocked or unlocked until time X (larger number)
+	intVal, _ := strconv.ParseUint(lockedVal, 10, 64)
+	if lockedVal == "0" {
+		return false
+	} else if intVal > 1 {
+		if time.Unix(int64(intVal), 0).After(time.Now().UTC()) {
+			return false
+		}
+	}
+	// Locked explicitly - or implicitly (because expired) - so only owner will return false (unlocked)
+	return sender != n.Owner
+}
+
 func retryNfdApiCalls(meth func() error) error {
 	return repeat.Repeat(
 		repeat.Fn(func() error {
@@ -66,7 +90,7 @@ func retryNfdApiCalls(meth func() error) error {
 func getAllNfds(onlyRoots bool, requireVaults bool) ([]*nfdapi.NfdRecord, error) {
 	var (
 		offset, limit int32 = 0, 200
-		records       nfdapi.NfdV2SearchRecords
+		fetchedNfds   nfdapi.NfdV2SearchRecords
 		err           error
 		nfds          []*nfdapi.NfdRecord
 	)
@@ -82,7 +106,7 @@ func getAllNfds(onlyRoots bool, requireVaults bool) ([]*nfdapi.NfdRecord, error)
 			if onlyRoots {
 				searchOpts.Traits = optional.NewInterface("pristine")
 			}
-			records, _, err = api.NfdApi.NfdSearchV2(ctx, searchOpts)
+			fetchedNfds, _, err = api.NfdApi.NfdSearchV2(ctx, searchOpts)
 			return err
 		})
 
@@ -90,21 +114,21 @@ func getAllNfds(onlyRoots bool, requireVaults bool) ([]*nfdapi.NfdRecord, error)
 			return nil, fmt.Errorf("error while fetching segments: %w", err)
 		}
 
-		if records.Nfds == nil || len(*records.Nfds) == 0 {
+		if fetchedNfds.Nfds == nil || len(*fetchedNfds.Nfds) == 0 {
 			break
 		}
-		for _, record := range *records.Nfds {
-			if record.DepositAccount == "" {
+		for _, nfd := range *fetchedNfds.Nfds {
+			if nfd.DepositAccount == "" {
 				continue
 			}
 			if requireVaults {
 				// contract has to be at least 2.11 and not be locked for vault receipt
-				if !IsContractVersionAtLeast(record.Properties.Internal["ver"], 2, 11) || record.Properties.Internal["vaultOptInLocked"] == "1" {
+				if !IsContractVersionAtLeast(nfd.Properties.Internal["ver"], 2, 11) || IsVaultAutoOptInLockedForSender(&nfd, types.ZeroAddress.String()) {
 					continue
 				}
 			}
 
-			newRecord := record
+			newRecord := nfd
 			nfds = append(nfds, &newRecord)
 		}
 	}

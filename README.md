@@ -128,7 +128,7 @@ Some of the supported properties are:
 * ALGORAND_DATA
   * If specified, tries to load node configuration data from the algod.net / algod.token file in this dir.
 * ALGO_NFD_URL
-  * The https:// address of the NFD API (defaulted for you for each -network)
+  * The https:// address of the NFD API (defaulted for you - for each network)
 * ALGO_ALGOD_URL / ALGO_ALGOD_TOKEN
   * URL to algod endpoint and token (if needed) - defaults to algonode
 * ALGO_ALGOD_HEADERS
@@ -136,7 +136,8 @@ Some of the supported properties are:
 
 ## Results
 
-It's simple but currently the results of each send are appended to success.txt and failure.txt files in the current directory. 
+It's simple but currently the results of each send are appended to success.txt and failure.txt files in the current directory.
+The failure count will be reported at the end.  If any fail, you should check the failures reported and possibly send manually. 
 
 ---
 ### Note on use of NFD Api
