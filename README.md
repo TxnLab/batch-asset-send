@@ -3,7 +3,8 @@
 ### Table of Contents
 
 1. [Intro](#introduction)
-2. [Setup](#setup)
+2. [Installing from binaries](#installing-from-released-binaries)
+2. [Building from source](#building-from-source)
 2. [Command Line Arguments](#command-line-arguments)
 3. [JSON Configuration](#json-configuration)
 4. [Environment File](#environment-file)
@@ -20,7 +21,14 @@ This repository contains a simple command-line interface application written in 
     * For each match, send to the vault, or to the deposit account.
     * For deposit account sends, whether to make unique by owning account or NFD (ie: user own 5 NFDs w/ 1 account, do they get 5 distributions or 1).  This only applies to deposit account, not vaults, since vaults will always be unique per NFD.
 
-## Setup
+## Installing from released binaries
+
+Go to the latest released version at [releases](https://github.com/TxnLab/batch-asset-send/releases), and download the archive corresponding to your OS and architecture.
+amd(intel)64-bit, or arm 64-bit.  The darwin (mac os) binaries aren't signed, so you'll have to right-click, pick open and pre-approve.  If you're not sure what this means, just build from source.
+Extract the binaries to the directory of yuor choice and run as you would any other executable program.  See [Command Line Arguments](#command-line-arguments) 
+
+
+## Building from source
 
 First, ensure that Go is installed on your system. If it is not, you can download and install it from
 the [official Go website](https://golang.org/dl/).
