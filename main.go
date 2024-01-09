@@ -37,7 +37,7 @@ func main() {
 	vault := flag.String("vault", "", "Don't send from sender account but from the named NFD vault that sender is owner of")
 	config := flag.String("config", "send.json", "path to json config file specifying what to send and to what recipients")
 	dryrun := flag.Bool("dryrun", false, "dryrun just shows what would've been sent but doesn't actually send")
-	parallel := flag.Int("parallel", 40, "maximum number of sends to do at once - target node may limit")
+	parallel := flag.Int("parallel", maxSimultaneousSends, "maximum number of sends to do at once - target node may limit")
 	flag.Parse()
 	maxSimultaneousSends = *parallel
 
@@ -195,7 +195,7 @@ func initSigner(sender string) {
 func initClients(network string) {
 	cfg := algo.GetNetworkConfig(network)
 	var err error
-	algoClient, err = algo.GetAlgoClient(logger, cfg)
+	algoClient, err = algo.GetAlgoClient(logger, cfg, maxSimultaneousSends)
 	if err != nil {
 		log.Fatalln(err)
 	}
