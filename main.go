@@ -122,7 +122,7 @@ func main() {
 func checkBalanceReqs(senderInfo algo.AccountWithMinBalance, expectedFees uint64) {
 	misc.Infof(logger, "Sending may cost a maximum of %s ALGO in fees", algo.FormattedAlgoAmount(expectedFees))
 	if (senderInfo.Amount - senderInfo.MinBalance) < expectedFees {
-		log.Fatalf("You only have %s (minus MBR) ALGO and likely won't be able to perform this airdrop")
+		log.Fatalf("You only have %s (minus MBR) ALGO and likely won't be able to perform this airdrop", algo.FormattedAlgoAmount(senderInfo.Amount-senderInfo.MinBalance))
 	}
 }
 
