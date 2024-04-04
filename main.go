@@ -74,7 +74,7 @@ func main() {
 		sourceAccount, _ = types.DecodeAddress(vaultNfd.NfdAccount)
 	}
 
-	// Collect set of assets to send so we can determine distribution
+	// Collect set of assets to send, so we can determine distribution
 	assetsToSend, err := fetchAssets(sendConfig)
 	if err != nil {
 		log.Fatalln(err)
@@ -187,9 +187,9 @@ func initSigner(sender string) {
 		flag.Usage()
 		log.Fatalln("You must specify a sender account!")
 	}
-	if !signer.HasAccount(sender) {
-		log.Fatalf("The sender account:%s has no mnemonics specified.", sender)
-	}
+	//if !signer.HasAccount(sender) {
+	//	log.Fatalf("The sender account:%s has no mnemonics specified.", sender)
+	//}
 }
 
 func initClients(network string) {

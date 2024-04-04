@@ -87,23 +87,27 @@ func retryNfdApiCalls(meth func() error) error {
 	)
 }
 
-func getAllNfds(onlyRoots bool, requireVaults bool) ([]*nfdapi.NfdRecord, error) {
+func getAllNfds(config *BatchSendConfig) ([]*nfdapi.NfdRecord, error) {
 	var (
-		offset, limit int32 = 0, 200
+		offset, limit int64 = 0, 200
 		fetchedNfds   nfdapi.NfdV2SearchRecords
 		err           error
 		nfds          []*nfdapi.NfdRecord
 	)
 
 	for ; ; offset += limit {
+		view := "brief"
+		if len(config.Destination.VerifiedRequirements) > 0 {
+			view = "full"
+		}
 		err = retryNfdApiCalls(func() error {
 			searchOpts := &nfdapi.NfdApiNfdSearchV2Opts{
 				State:  optional.NewInterface("owned"),
-				View:   optional.NewString("brief"),
-				Limit:  optional.NewInt32(limit),
-				Offset: optional.NewInt32(offset),
+				View:   optional.NewString(view),
+				Limit:  optional.NewInt64(limit),
+				Offset: optional.NewInt64(offset),
 			}
-			if onlyRoots {
+			if config.Destination.RandomNFDs.OnlyRoots {
 				searchOpts.Traits = optional.NewInterface("pristine")
 			}
 			fetchedNfds, _, err = api.NfdApi.NfdSearchV2(ctx, searchOpts)
@@ -121,13 +125,6 @@ func getAllNfds(onlyRoots bool, requireVaults bool) ([]*nfdapi.NfdRecord, error)
 			if nfd.DepositAccount == "" {
 				continue
 			}
-			if requireVaults {
-				// contract has to be at least 2.11 and not be locked for vault receipt
-				if !IsContractVersionAtLeast(nfd.Properties.Internal["ver"], 2, 11) || IsVaultAutoOptInLockedForSender(&nfd, types.ZeroAddress.String()) {
-					continue
-				}
-			}
-
 			newRecord := nfd
 			nfds = append(nfds, &newRecord)
 		}
@@ -135,37 +132,42 @@ func getAllNfds(onlyRoots bool, requireVaults bool) ([]*nfdapi.NfdRecord, error)
 	return nfds, nil
 }
 
-func getSegmentsOfRoot(rootNfdName string, requireVaults bool) ([]*nfdapi.NfdRecord, error) {
+func getSegmentsOfRoot(config *BatchSendConfig) ([]*nfdapi.NfdRecord, error) {
 	// Fetch root NFD - all we really want is its app id
-	nfd, _, err := api.NfdApi.NfdGetNFD(ctx, rootNfdName, nil)
+	nfd, _, err := api.NfdApi.NfdGetNFD(ctx, config.Destination.SegmentsOfRoot, nil)
 	if err != nil {
 		log.Fatalln(err)
 	}
 	misc.Infof(logger, fmt.Sprintf("nfd app id for %s is:%v", nfd.Name, nfd.AppID))
 
-	nfds, err := getAllSegments(ctx, nfd.AppID, requireVaults)
+	nfds, err := getAllSegments(ctx, config, nfd.AppID)
 	if err != nil {
 		log.Fatalln(err)
 	}
-	logger.Debug(fmt.Sprintf("fetched segments of root:%s, count:%d", rootNfdName, len(nfds)))
+	logger.Debug(fmt.Sprintf("fetched segments of root:%s, count:%d", config.Destination.SegmentsOfRoot, len(nfds)))
 	return nfds, nil
 }
 
-func getAllSegments(ctx context.Context, parentAppID int64, requireVaults bool) ([]*nfdapi.NfdRecord, error) {
+func getAllSegments(ctx context.Context, config *BatchSendConfig, parentAppID int64) ([]*nfdapi.NfdRecord, error) {
 	var (
-		offset, limit int32 = 0, 200
+		offset, limit int64 = 0, 200
 		records       nfdapi.NfdV2SearchRecords
 		err           error
 		nfds          []*nfdapi.NfdRecord
 	)
 
 	for ; ; offset += limit {
+		view := "brief"
+		if len(config.Destination.VerifiedRequirements) > 0 {
+			view = "full"
+		}
 		err = retryNfdApiCalls(func() error {
 			records, _, err = api.NfdApi.NfdSearchV2(ctx, &nfdapi.NfdApiNfdSearchV2Opts{
 				ParentAppID: optional.NewInt64(parentAppID),
 				State:       optional.NewInterface("owned"),
-				Limit:       optional.NewInt32(limit),
-				Offset:      optional.NewInt32(offset),
+				View:        optional.NewString(view),
+				Limit:       optional.NewInt64(limit),
+				Offset:      optional.NewInt64(offset),
 			})
 			return err
 		})
@@ -180,12 +182,6 @@ func getAllSegments(ctx context.Context, parentAppID int64, requireVaults bool) 
 		for _, record := range *records.Nfds {
 			if record.DepositAccount == "" {
 				continue
-			}
-			if requireVaults {
-				// contract has to be at least 2.11 and not be locked for vault receipt
-				if !IsContractVersionAtLeast(record.Properties.Internal["ver"], 2, 11) || record.Properties.Internal["vaultOptInLocked"] == "1" {
-					continue
-				}
 			}
 			newRecord := record
 			nfds = append(nfds, &newRecord)
@@ -219,8 +215,8 @@ func getAssetSendTxns(sender string, sendFromVaultName string, recipient string,
 			encodedTxns, _, err = api.NfdApi.NfdSendFromVault(
 				ctx,
 				nfdapi.SendFromVaultRequestBody{
-					Amount:       amount,
-					Assets:       []uint64{assetID},
+					Amount:       int64(amount),
+					Assets:       []int64{int64(assetID)},
 					Receiver:     recipient,
 					ReceiverType: receiverType,
 					Sender:       sender, // owner address
@@ -232,8 +228,8 @@ func getAssetSendTxns(sender string, sendFromVaultName string, recipient string,
 				encodedTxns, _, err = api.NfdApi.NfdSendToVault(
 					ctx,
 					nfdapi.SendToVaultRequestBody{
-						Amount: amount,
-						Assets: []uint64{assetID},
+						Amount: int64(amount),
+						Assets: []int64{int64(assetID)},
 						Sender: sender, // owner address
 					},
 					recipient,

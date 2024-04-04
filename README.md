@@ -87,7 +87,7 @@ The default is to read from a send.json file in the current directory, but this 
 ## JSON Configuration
 
 The application also accepts a JSON configuration file as input. Here is an example configuration file with all possible options shown.  Any value left out is assumed 'false' or 0.
-Some of these options are conflicting to be specified together. 
+Some of these options conflict with eachother if specified together. 
 
 ```json
 {
@@ -105,6 +105,7 @@ Some of these options are conflicting to be specified together.
       "count": 100,
       "onlyRoots": false
     },
+    "verifiedRequirements": ["twitter", "caAlgo"],
     "sendToVaults": true
   }
 }
@@ -124,6 +125,8 @@ Some of these options are conflicting to be specified together.
   - `count`: If specified, this is the number of NFDS to choose randomly from the total list.  ie: All segments of root X, but only pick 100 random recipients by specifying a count here.
   - `onlyRoots`: Determines whether only root NFDs are allowed.
     - Only applicable if segmentsOfRoot isn't specified - if left off then ALL nfds are chosen.  If specified, only select roots.
+- `verifiedRequirements`: An optional array of verified field names.  If specified, the destination NFD must have ALL of the specified verified fields.
+  - The field names are case-sensitive.  All should be lowercase, but caAlgo is special and is the verified list of algorand addresses. 
 - `sendToVaults`: Determines whether to send to vaults.
   - This is a key option and for most 'aidrops' should be chosen.  The recipient doesn't have to be opted-in before-hand.  As the sender you have to pay the .1 MBR fee per asset (only if their vault isn't already opted-in).
 

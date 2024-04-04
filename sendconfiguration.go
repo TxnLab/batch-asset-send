@@ -24,6 +24,9 @@ type DestinationChoice struct {
 
 	SendToVaults bool `json:"sendToVaults"`
 
+	// Only send if v.XXXX is present in NFD (ie: verifiedRequirements: ["twitter"] would require v.twitter to be set)
+	VerifiedRequirements []string `json:"verifiedRequirements,omitempty"`
+
 	// If user w/ single account owns 10 eligible NFDS do they get 10 drops or just 1.  Defaults to just going to
 	// unique accounts.  Set to true to send '1' per nfd regardless of final account
 	AllowDuplicateAccounts bool `json:"allowDuplicateAccounts"`
@@ -43,7 +46,10 @@ func (dc DestinationChoice) String() string {
 	if dc.RandomNFDs.Count != 0 {
 		sb.WriteString(fmt.Sprintf("Limited to maximum of %d recipients", dc.RandomNFDs.Count))
 	}
-	if dc.SegmentsOfRoot == "" && !dc.RandomNFDs.OnlyRoots && dc.RandomNFDs.Count == 0 {
+	if len(dc.VerifiedRequirements) > 0 {
+		sb.WriteString(fmt.Sprintf("Verified (v.*) requirements: %v, ", dc.VerifiedRequirements))
+	}
+	if dc.SegmentsOfRoot == "" && !dc.RandomNFDs.OnlyRoots && dc.RandomNFDs.Count == 0 && len(dc.VerifiedRequirements) == 0 {
 		sb.WriteString("Sending to ALL owned NFDs")
 	}
 	return sb.String()
@@ -57,7 +63,7 @@ type AssetChoice struct {
 		ASA uint64 `json:"asa"`
 		// If IsPerRcp is NOT set then this is the TOTAL amount to send - and will be divided across destination
 		// count - if IsPerRcp is set then amount is amount per recipient
-		// Specified in user friendly units - not base units - ie 1.5 ALGO would be 1.5, not 1,500,000
+		// Specified in user-friendly units - not base units - ie 1.5 ALGO would be 1.5, not 1,500,000
 		Amount float64 `json:"amount"`
 		// Is the amount 'per recipient' or is it total amount to send.
 		IsPerRecip bool `json:"isPerRecip"`

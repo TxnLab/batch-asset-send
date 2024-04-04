@@ -40,7 +40,6 @@ Class | Method | HTTP request | Description
 *NfdApi* | [**NfdEscrowOffer**](docs/NfdApi.md#nfdescrowoffer) | **Post** /nfd/escrowOffer/{name} | escrowOffer nfd
 *NfdApi* | [**NfdGetLookup**](docs/NfdApi.md#nfdgetlookup) | **Get** /nfd/lookup | Reverse Address lookup with results returned per address
 *NfdApi* | [**NfdGetNFD**](docs/NfdApi.md#nfdgetnfd) | **Get** /nfd/{nameOrID} | Get a specific NFD by name or by its application ID
-*NfdApi* | [**NfdGetNFDsForAddresses**](docs/NfdApi.md#nfdgetnfdsforaddresses) | **Get** /nfd/address | [DEPRECATED] Reverse Address lookup
 *NfdApi* | [**NfdGetNFDsForAddressesV2**](docs/NfdApi.md#nfdgetnfdsforaddressesv2) | **Get** /nfd/v2/address | Reverse Address lookup with results returned per address
 *NfdApi* | [**NfdGetNameSig**](docs/NfdApi.md#nfdgetnamesig) | **Get** /nfd/nameSig/{name} | getNameSig nfd
 *NfdApi* | [**NfdGetOpenAuctions**](docs/NfdApi.md#nfdgetopenauctions) | **Get** /nfd/auction | Get all open auctions or those open for a particular name
@@ -50,7 +49,6 @@ Class | Method | HTTP request | Description
 *NfdApi* | [**NfdKickoff**](docs/NfdApi.md#nfdkickoff) | **Post** /nfd/kickoff | kickoff nfd
 *NfdApi* | [**NfdLinkAddress**](docs/NfdApi.md#nfdlinkaddress) | **Post** /nfd/links/addAddress/{name} | linkAddress nfd
 *NfdApi* | [**NfdOffer**](docs/NfdApi.md#nfdoffer) | **Post** /nfd/offer/{name} | offer nfd
-*NfdApi* | [**NfdPartnerKickoff**](docs/NfdApi.md#nfdpartnerkickoff) | **Post** /nfd/partnerKickoff | partnerKickoff nfd
 *NfdApi* | [**NfdPostOfferToOwner**](docs/NfdApi.md#nfdpostoffertoowner) | **Post** /nfd/postOfferToOwner/{name} | postOfferToOwner nfd
 *NfdApi* | [**NfdPurchase**](docs/NfdApi.md#nfdpurchase) | **Post** /nfd/purchase/{name} | purchase nfd
 *NfdApi* | [**NfdRescindOffer**](docs/NfdApi.md#nfdrescindoffer) | **Post** /nfd/rescindOffer/{name} | rescindOffer nfd
@@ -99,7 +97,6 @@ Class | Method | HTTP request | Description
  - [NfdRecordinaddress](docs/NfdRecordinaddress.md)
  - [NfdV2SearchRecords](docs/NfdV2SearchRecords.md)
  - [OfferRequestBody](docs/OfferRequestBody.md)
- - [PartnerKickoffRequestBody](docs/PartnerKickoffRequestBody.md)
  - [PostOfferToOwnerRequestBody](docs/PostOfferToOwnerRequestBody.md)
  - [PurchaseRequestBody](docs/PurchaseRequestBody.md)
  - [RateLimited](docs/RateLimited.md)

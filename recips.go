@@ -1,9 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"math/rand"
 	"sort"
+
+	"github.com/algorand/go-algorand-sdk/v2/types"
 
 	"github.com/TxnLab/batch-asset-send/lib/misc"
 	nfdapi "github.com/TxnLab/batch-asset-send/lib/nfdapi/swagger"
@@ -20,7 +23,7 @@ type Recipient struct {
 // If the number of recipients to pick is 0 or more than the number of available NFDs, it returns recipients from all NFDs.
 // Otherwise, it returns recipients from randomly selected NFDs.
 func collectRecipients(config *BatchSendConfig, sendingFromVault *nfdapi.NfdRecord) ([]*Recipient, error) {
-	nfdsToChooseFrom, err := getNFdsToChooseFrom(config)
+	nfdsToChooseFrom, err := getNfdsToChooseFrom(config)
 	if err != nil {
 		return nil, err
 	}
@@ -56,22 +59,86 @@ func sortByDepositAccount(recipients []*Recipient) {
 	})
 }
 
-// getNFdsToChooseFrom retrieves the list of NfdRecord objects to choose from
+// getNfdsToChooseFrom retrieves the list of NfdRecord objects to choose from
 // based on the provided BatchSendConfig. If the SegmentsOfRoot field is
 // specified in the DestinationChoice of the config, it fetches the segments of
 // the specified rootNfdName and returns them. It also checks if SendToVault is set
 // and ensures that choice is passed through to filter out ineligible vaults (NFDs not upgraded or vault locked)
-func getNFdsToChooseFrom(config *BatchSendConfig) ([]*nfdapi.NfdRecord, error) {
+func getNfdsToChooseFrom(config *BatchSendConfig) ([]*nfdapi.NfdRecord, error) {
+	var (
+		nfdRecords []*nfdapi.NfdRecord
+		err        error
+	)
 	if config.Destination.SegmentsOfRoot != "" {
 		if config.Destination.RandomNFDs.OnlyRoots {
 			log.Fatalln("configured to get segments of a root but then specified wanting only roots! This is an invalid configuration")
 		}
-		return getSegmentsOfRoot(config.Destination.SegmentsOfRoot, config.Destination.SendToVaults)
+		nfdRecords, err = getSegmentsOfRoot(config)
 	} else {
-		return getAllNfds(config.Destination.RandomNFDs.OnlyRoots, config.Destination.SendToVaults)
+		nfdRecords, err = getAllNfds(config)
 	}
+	if err != nil {
+		return nil, fmt.Errorf("error in getNfdsToChooseFrom: %w", err)
+	}
+	misc.Infof(logger, "..total of %d NFDs found before next filter step", len(nfdRecords))
+	return filterNfds(config, nfdRecords)
+}
 
-	return nil, nil
+func filterNfds(config *BatchSendConfig, records []*nfdapi.NfdRecord) ([]*nfdapi.NfdRecord, error) {
+	// do any additional filtering here, if necessary
+	if len(config.Destination.VerifiedRequirements) == 0 {
+		return records, nil
+	}
+	// Return only those nfds having ALL the specified verified requirements.
+	var (
+		filteredRecords            = make([]*nfdapi.NfdRecord, 0, len(records))
+		vaultExcludedByVer         int
+		vaultExcludedBecauseLocked int
+		verifiedExcluded           int
+	)
+	for _, nfd := range records {
+		if nfd.DepositAccount == "" {
+			continue
+		}
+		if config.Destination.SendToVaults {
+			var excluded bool
+			// contract has to be at least 2.11 and not be locked for vault receipt
+			if !IsContractVersionAtLeast(nfd.Properties.Internal["ver"], 2, 11) {
+				vaultExcludedByVer++
+				excluded = true
+			}
+			if IsVaultAutoOptInLockedForSender(nfd, types.ZeroAddress.String()) {
+				vaultExcludedBecauseLocked++
+				excluded = true
+			}
+			if excluded {
+				continue
+			}
+		}
+
+		verifiedProps := nfd.Properties.Verified
+		if len(verifiedProps) > 0 {
+			verified := true
+			for _, requirement := range config.Destination.VerifiedRequirements {
+				if _, ok := verifiedProps[requirement]; !ok {
+					verified = false
+					break
+				}
+			}
+			if !verified {
+				verifiedExcluded++
+				continue
+			}
+		}
+		filteredRecords = append(filteredRecords, nfd)
+	}
+	if vaultExcludedByVer > 0 || vaultExcludedBecauseLocked > 0 {
+		misc.Infof(logger, "..vault requirement excluded:%d [NOT UPGRADED], and %d [LOCKED]", vaultExcludedByVer, vaultExcludedBecauseLocked)
+	}
+	if verifiedExcluded > 0 {
+		misc.Infof(logger, "..filtered out %d NFDs due to verified requirements", verifiedExcluded)
+	}
+	return filteredRecords, nil
 }
 
 func getNumToPick(config *BatchSendConfig, nfdsToChooseFrom []*nfdapi.NfdRecord) int {
