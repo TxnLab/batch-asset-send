@@ -9,8 +9,6 @@ import (
 )
 
 type DestinationChoice struct {
-	// If filename specified, then is explicit list of destinations and assumed asset send choice determines what is sent to each.
-	//CSVFilename string `json:"csvFilename"`
 	// If it should only be sent to segments of specified Root
 	SegmentsOfRoot string `json:"segmentsOfRoot"`
 	// If RandomNFDs is filled out then target isn't 'all' it's random in some way
@@ -18,9 +16,10 @@ type DestinationChoice struct {
 	RandomNFDs struct {
 		// Only send to X number of nfds - not all
 		Count int `json:"count"`
-		// If doing random, but SegmentsOfRoot isn't set then only pick random roots
-		OnlyRoots bool `json:"onlyRoots"`
 	} `json:"randomNFDs"`
+
+	// Ignore segments, only pick roots
+	OnlyRoots bool `json:"onlyRoots"`
 
 	SendToVaults bool `json:"sendToVaults"`
 
@@ -28,7 +27,7 @@ type DestinationChoice struct {
 	VerifiedRequirements []string `json:"verifiedRequirements,omitempty"`
 
 	// If user w/ single account owns 10 eligible NFDS do they get 10 drops or just 1.  Defaults to just going to
-	// unique accounts.  Set to true to send '1' per nfd regardless of final account
+	// unique owner accounts.  Leave as false (default) to send '1' per nfd regardless
 	AllowDuplicateAccounts bool `json:"allowDuplicateAccounts"`
 }
 
@@ -40,7 +39,7 @@ func (dc DestinationChoice) String() string {
 	if dc.SegmentsOfRoot != "" {
 		sb.WriteString(fmt.Sprintf("Segments of root:%s, ", dc.SegmentsOfRoot))
 	}
-	if dc.RandomNFDs.OnlyRoots {
+	if dc.OnlyRoots {
 		sb.WriteString(fmt.Sprintf("Grabbing 'roots' only, "))
 	}
 	if dc.RandomNFDs.Count != 0 {
@@ -49,7 +48,7 @@ func (dc DestinationChoice) String() string {
 	if len(dc.VerifiedRequirements) > 0 {
 		sb.WriteString(fmt.Sprintf("Verified (v.*) requirements: %v, ", dc.VerifiedRequirements))
 	}
-	if dc.SegmentsOfRoot == "" && !dc.RandomNFDs.OnlyRoots && dc.RandomNFDs.Count == 0 && len(dc.VerifiedRequirements) == 0 {
+	if dc.SegmentsOfRoot == "" && !dc.OnlyRoots && dc.RandomNFDs.Count == 0 && len(dc.VerifiedRequirements) == 0 {
 		sb.WriteString("Sending to ALL owned NFDs")
 	}
 	return sb.String()
@@ -96,27 +95,3 @@ func loadJSONConfig(filename string) (*BatchSendConfig, error) {
 
 	return &data, nil
 }
-
-type DestinationCSVData struct {
-	Account string
-}
-
-//
-//func main() {
-//	csvFile, _ := os.Open("path_to_your_file.csv")
-//	r := csv.NewReader(csvFile)
-//	r.Comment = '#'
-//
-//	var accounts []DestinationCSVData
-//	for {
-//		line, error := r.Read()
-//		if error != nil {
-//			fmt.Println("End of file")
-//			break
-//		}
-//		accounts = append(accounts, DestinationCSVData{
-//			Account: line[0],
-//		})
-//	}
-//	fmt.Println(accounts)
-//}

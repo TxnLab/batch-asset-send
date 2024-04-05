@@ -101,9 +101,9 @@ Some of these options conflict with eachother if specified together.
   "destination": {
     "segmentsOfRoot": "orange.algo",
     "allowDuplicateAccounts": true,
+    "onlyRoots": false,
     "randomNFDs": {
-      "count": 100,
-      "onlyRoots": false
+      "count": 100
     },
     "verifiedRequirements": ["twitter", "caAlgo"],
     "sendToVaults": true
@@ -119,12 +119,12 @@ Some of these options conflict with eachother if specified together.
 **Destination**: This configures the recipients of the assets.
 - `segmentsOfRoot`: The root segments of the destination.
   - If specified, the NFDs are just those which are segments of a particular root NFD.  If not specified, then ALL nfds are the starting point. 
-- `allowDuplicateAccounts`: Determines whether duplicate accounts are allowed.
-  - Only applicable if sendToVaults isn't set.  The depositAccount of each NFD is used and if allowDuplicateAccounts is false, then only unique accounts are chosen.
+- `allowDuplicateAccounts`: Determines whether duplicate accounts are allowed (defaulting to no duplicates)
+  - The owner of each NFD is used and if allowDuplicateAccounts is false, then only unique owners are chosen amongst the NFDs (picking an artbirary NFD for that owner)
+- `onlyRoots`: Determines whether only root NFDs are allowed.
+  - If specified, only roots are chosen with segments being skipped.
 - `randomNFDs`: 
   - `count`: If specified, this is the number of NFDS to choose randomly from the total list.  ie: All segments of root X, but only pick 100 random recipients by specifying a count here.
-  - `onlyRoots`: Determines whether only root NFDs are allowed.
-    - Only applicable if segmentsOfRoot isn't specified - if left off then ALL nfds are chosen.  If specified, only select roots.
 - `verifiedRequirements`: An optional array of verified field names.  If specified, the destination NFD must have ALL of the specified verified fields.
   - The field names are case-sensitive.  All should be lowercase, but caAlgo is special and is the verified list of algorand addresses. 
 - `sendToVaults`: Determines whether to send to vaults.

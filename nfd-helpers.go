@@ -107,7 +107,7 @@ func getAllNfds(config *BatchSendConfig) ([]*nfdapi.NfdRecord, error) {
 				Limit:  optional.NewInt64(limit),
 				Offset: optional.NewInt64(offset),
 			}
-			if config.Destination.RandomNFDs.OnlyRoots {
+			if config.Destination.OnlyRoots {
 				searchOpts.Traits = optional.NewInterface("pristine")
 			}
 			fetchedNfds, _, err = api.NfdApi.NfdSearchV2(ctx, searchOpts)
@@ -115,7 +115,7 @@ func getAllNfds(config *BatchSendConfig) ([]*nfdapi.NfdRecord, error) {
 		})
 
 		if err != nil {
-			return nil, fmt.Errorf("error while fetching segments: %w", err)
+			return nil, fmt.Errorf("error while fetching nfds: %w", err)
 		}
 
 		if fetchedNfds.Nfds == nil || len(*fetchedNfds.Nfds) == 0 {

@@ -99,7 +99,7 @@ func main() {
 		// They don't want dupes !
 		uniqRecipients := getUniqueRecipients(recipients)
 		if len(uniqRecipients) != len(recipients) {
-			misc.Infof(logger, "Reduced to %d UNIQUE deposit accounts", len(uniqRecipients))
+			misc.Infof(logger, "Reduced to %d UNIQUE owner accounts", len(uniqRecipients))
 			recipients = uniqRecipients
 		}
 	}
@@ -187,9 +187,9 @@ func initSigner(sender string) {
 		flag.Usage()
 		log.Fatalln("You must specify a sender account!")
 	}
-	//if !signer.HasAccount(sender) {
-	//	log.Fatalf("The sender account:%s has no mnemonics specified.", sender)
-	//}
+	if !signer.HasAccount(sender) {
+		log.Fatalf("The sender account:%s has no mnemonics specified.", sender)
+	}
 }
 
 func initClients(network string) {
