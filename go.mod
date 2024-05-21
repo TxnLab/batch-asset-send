@@ -1,6 +1,6 @@
 module github.com/TxnLab/batch-asset-send
 
-go 1.21
+go 1.22
 
 require (
 	github.com/algorand/go-algorand-sdk/v2 v2.4.0

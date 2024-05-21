@@ -19,8 +19,6 @@ github.com/google/go-querystring v1.0.0 h1:Xkwi/a1rcvNg1PPYe5vI8GbeBY/jrVuDX5ASu
 github.com/google/go-querystring v1.0.0/go.mod h1:odCYkC5MyYFN7vkCjXpyrEuKhc/BUO6wN/zVPAxq5ck=
 github.com/joho/godotenv v1.5.1 h1:7eLL/+HRGLY0ldzfGMeQkb7vMd0as4CfYvUVzLqw0N0=
 github.com/joho/godotenv v1.5.1/go.mod h1:f4LDr5Voq0i2e/R5DDNOoa2zzDfwtkZa6DnEwAbqwq4=
-github.com/mailgun/holster/v4 v4.16.4 h1:echlx29e/sf6v0Z7/DYKJgF7I/IcFjKgtbPtGqyeeKw=
-github.com/mailgun/holster/v4 v4.16.4/go.mod h1:phAg61z7LZ1PBfedyt2GXkGSlHhuVKK9AcVJO+Cm0/U=
 github.com/mailgun/holster/v4 v4.17.0 h1:+Zj3bunQFx3QkMWNlaeLolp7kyBteDnaPx7BT5hJidE=
 github.com/mailgun/holster/v4 v4.17.0/go.mod h1:UeI3ynFAjOApzf/INq881b9WKM3eRNXp3oPFwJoJBMc=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
