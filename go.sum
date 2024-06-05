@@ -4,6 +4,8 @@ github.com/algorand/avm-abi v0.1.1 h1:dbyQKzXiyaEbzpmqXFB30yAhyqseBsyqXTyZbNbkh2
 github.com/algorand/avm-abi v0.1.1/go.mod h1:+CgwM46dithy850bpTeHh9MC99zpn2Snirb3QTl2O/g=
 github.com/algorand/go-algorand-sdk/v2 v2.4.0 h1:R9ykarfk0ojAZlXlrysViDwWjHrvUMA0HmFHg9PmECw=
 github.com/algorand/go-algorand-sdk/v2 v2.4.0/go.mod h1:Xk569fTpBTV0QtE74+79NTl6Rz3OC1K3iods4uG0ffU=
+github.com/algorand/go-algorand-sdk/v2 v2.6.0 h1:pfL8lloEi26l6PwAFicmPUguWgKpy1eZZTMlQcci5h0=
+github.com/algorand/go-algorand-sdk/v2 v2.6.0/go.mod h1:4ayerzjoWChm3kuVhbgFgURTbaYTtlj0c41eP3av5lw=
 github.com/algorand/go-codec/codec v1.1.10 h1:zmWYU1cp64jQVTOG8Tw8wa+k0VfwgXIPbnDfiVa+5QA=
 github.com/algorand/go-codec/codec v1.1.10/go.mod h1:YkEx5nmr/zuCeaDYOIhlDg92Lxju8tj2d2NrYqP7g7k=
 github.com/antihax/optional v1.0.0 h1:xK2lYat7ZLaVVcIuj82J8kIro4V6kDe0AUDFboUCwcg=
