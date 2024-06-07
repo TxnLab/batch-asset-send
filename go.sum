@@ -23,6 +23,8 @@ github.com/mailgun/holster/v4 v4.17.0 h1:+Zj3bunQFx3QkMWNlaeLolp7kyBteDnaPx7BT5h
 github.com/mailgun/holster/v4 v4.17.0/go.mod h1:UeI3ynFAjOApzf/INq881b9WKM3eRNXp3oPFwJoJBMc=
 github.com/mailgun/holster/v4 v4.17.1 h1:JFmI3iNmkVuZZTjG0/+s9n1mpPvPQvyxaZLYlcO99bw=
 github.com/mailgun/holster/v4 v4.17.1/go.mod h1:UeI3ynFAjOApzf/INq881b9WKM3eRNXp3oPFwJoJBMc=
+github.com/mailgun/holster/v4 v4.20.0 h1:K8KCpyaim+yFbjcUQ5q4TcRXZhIWJxwOUwjlh9FPAuE=
+github.com/mailgun/holster/v4 v4.20.0/go.mod h1:/5ijRCyMjOHxt69WdAgvB2gyYCapJaJdT/QciGIcu50=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
