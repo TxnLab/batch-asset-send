@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/algorand/go-algorand-sdk/v2/client/v2/algod"
+	"github.com/algorand/go-algorand-sdk/v2/client/v2/common/models"
 	"github.com/algorand/go-algorand-sdk/v2/types"
 
 	"github.com/TxnLab/batch-asset-send/lib/algo"
@@ -119,7 +120,7 @@ func main() {
 	sendAssets(*sender, assetsToSend, recipients, vaultNfd, *dryrun)
 }
 
-func checkBalanceReqs(senderInfo algo.AccountWithMinBalance, expectedFees uint64) {
+func checkBalanceReqs(senderInfo models.Account, expectedFees uint64) {
 	misc.Infof(logger, "Sending may cost a maximum of %s ALGO in fees", algo.FormattedAlgoAmount(expectedFees))
 	if (senderInfo.Amount - senderInfo.MinBalance) < expectedFees {
 		log.Fatalf("You only have %s (minus MBR) ALGO and likely won't be able to perform this airdrop", algo.FormattedAlgoAmount(senderInfo.Amount-senderInfo.MinBalance))

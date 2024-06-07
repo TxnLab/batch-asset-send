@@ -114,22 +114,7 @@ func SuggestedParams(ctx context.Context, logger *slog.Logger, client *algod.Cli
 	return txParams
 }
 
-type AccountWithMinBalance struct {
-	models.Account
-	MinBalance uint64 `json:"min-balance,omitempty"`
-}
-
-// GetBareAccount just returns account information without asset data, but also includes the minimum balance that's
-// missing from the SDKs.
-func GetBareAccount(ctx context.Context, algoClient *algod.Client, account string) (AccountWithMinBalance, error) {
-	var response AccountWithMinBalance
-	var params = algod.AccountInformationParams{
-		Exclude: "all",
-	}
-
-	err := (*common.Client)(algoClient).Get(ctx, &response, fmt.Sprintf("/v2/accounts/%s", account), params, nil)
-	if err != nil {
-		return AccountWithMinBalance{}, err
-	}
-	return response, nil
+// GetBareAccount just returns account information without asset data
+func GetBareAccount(ctx context.Context, algoClient *algod.Client, account string) (models.Account, error) {
+	return algoClient.AccountInformation(account).Exclude("all").Do(ctx)
 }
