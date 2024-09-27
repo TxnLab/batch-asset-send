@@ -31,7 +31,8 @@ type Nfd struct {
 	// account wallets should send funds to - precedence is: caAlgo[0], unverifiedCaAlgo[0], owner
 	DepositAccount string `json:"depositAccount,omitempty"`
 	// ETag
-	Etag string `json:"etag,omitempty"`
+	Etag    string `json:"etag,omitempty"`
+	Expired bool   `json:"expired,omitempty"`
 	// Tags set by the system for tracking/analytics
 	MetaTags   []string `json:"metaTags,omitempty"`
 	Name       string   `json:"name"`
@@ -54,6 +55,7 @@ type Nfd struct {
 	Tags          []string  `json:"tags,omitempty"`
 	TimeChanged   time.Time `json:"timeChanged,omitempty"`
 	TimeCreated   time.Time `json:"timeCreated,omitempty"`
+	TimeExpires   time.Time `json:"timeExpires,omitempty"`
 	TimePurchased time.Time `json:"timePurchased,omitempty"`
 	// Unverified (non-algo) Crypto addresses for this NFD
 	UnverifiedCa map[string][]string `json:"unverifiedCa,omitempty"`
