@@ -1,12 +1,17 @@
 package main
 
 import (
+	"encoding/csv"
+	"errors"
 	"fmt"
 	"log"
 	"math/rand"
+	"os"
 	"sort"
+	"strings"
 
 	"github.com/algorand/go-algorand-sdk/v2/types"
+	"github.com/antihax/optional"
 
 	"github.com/TxnLab/batch-asset-send/lib/misc"
 	nfdapi "github.com/TxnLab/batch-asset-send/lib/nfdapi/swagger"
@@ -70,13 +75,34 @@ func getNfdsToChooseFrom(config *BatchSendConfig) ([]*nfdapi.NfdRecord, error) {
 		nfdRecords []*nfdapi.NfdRecord
 		err        error
 	)
-	if config.Destination.SegmentsOfRoot != "" {
-		if config.Destination.OnlyRoots {
-			log.Fatalln("configured to get segments of a root but then specified wanting only roots! This is an invalid configuration")
+	if config.Destination.CsvFile != "" {
+		// read data from the csv file determining which column contains the nfd name (with column name 'name', or 'nfd')
+		var csvRecords []map[string]string
+		csvRecords, err = processCsvFile(config.Destination.CsvFile)
+		if err == nil {
+			for _, csvRecord := range csvRecords {
+				view := "brief"
+				if len(config.Destination.VerifiedRequirements) > 0 {
+					view = "full"
+				}
+				fetchedNfd, _, err := api.NfdApi.NfdGetNFD(ctx, csvRecord["nfd"], &nfdapi.NfdApiNfdGetNFDOpts{
+					View: optional.NewString(view),
+				})
+				if err != nil {
+					return nil, fmt.Errorf("error in getNfdsToChooseFrom: failed to fetch NFD: %s from API: %w", csvRecord["nfd"], err)
+				}
+				nfdRecords = append(nfdRecords, &fetchedNfd)
+			}
 		}
-		nfdRecords, err = getSegmentsOfRoot(config)
 	} else {
-		nfdRecords, err = getAllNfds(config)
+		if config.Destination.SegmentsOfRoot != "" {
+			if config.Destination.OnlyRoots {
+				log.Fatalln("configured to get segments of a root but then specified wanting only roots! This is an invalid configuration")
+			}
+			nfdRecords, err = getSegmentsOfRoot(config)
+		} else {
+			nfdRecords, err = getAllNfds(config)
+		}
 	}
 	if err != nil {
 		return nil, fmt.Errorf("error in getNfdsToChooseFrom: %w", err)
@@ -198,4 +224,48 @@ func createRecipient(config *BatchSendConfig, destNfd *nfdapi.NfdRecord, sending
 		DepositAccount: deposit,
 		SendToVault:    config.Destination.SendToVaults,
 	}
+}
+
+func processCsvFile(csvFile string) ([]map[string]string, error) {
+	file, err := os.Open(csvFile)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	records, err := reader.ReadAll()
+	if err != nil {
+		return nil, err
+	}
+
+	if len(records) == 0 {
+		return nil, errors.New("CSV file is empty")
+	}
+
+	header := records[0]
+	nameIndex := -1
+	for i, colName := range header {
+		if strings.EqualFold(colName, "name") || strings.EqualFold(colName, "nfd") {
+			nameIndex = i
+			break
+		}
+	}
+
+	if nameIndex == -1 {
+		return nil, errors.New("neither 'name' nor 'nfd' column found in CSV file")
+	}
+	// always convert column to nfd
+	header[nameIndex] = "nfd"
+
+	var result []map[string]string
+	for _, row := range records[1:] {
+		record := make(map[string]string)
+		for i, col := range row {
+			record[header[i]] = col
+		}
+		result = append(result, record)
+	}
+
+	return result, nil
 }

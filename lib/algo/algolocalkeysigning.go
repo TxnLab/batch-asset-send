@@ -55,7 +55,7 @@ func (lk *localKeyStore) SignWithAccount(ctx context.Context, tx types.Transacti
 func (lk *localKeyStore) loadFromEnvironment() {
 	var numMnemonics int
 	for _, envVal := range os.Environ() {
-		if !strings.HasPrefix(envVal, "ALGO_MNEMONIC") {
+		if !strings.Contains(envVal, "_MNEMONIC") {
 			continue
 		}
 		key := envVal[0:strings.IndexByte(envVal, '=')]

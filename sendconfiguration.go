@@ -9,8 +9,12 @@ import (
 )
 
 type DestinationChoice struct {
+	// a csv file of recipient nfds to send to (if not opted in only nfd sends [to vaults] will work)
+	CsvFile string `json:"csvfile"`
+
 	// If it should only be sent to segments of specified Root
 	SegmentsOfRoot string `json:"segmentsOfRoot"`
+
 	// If RandomNFDs is filled out then target isn't 'all' it's random in some way
 	// so if SegmentsOfRoot is set but RandomNFDs.xxx isn't then it's all
 	RandomNFDs struct {
@@ -33,6 +37,9 @@ type DestinationChoice struct {
 
 func (dc DestinationChoice) String() string {
 	var sb strings.Builder
+	if dc.CsvFile != "" {
+		sb.WriteString(fmt.Sprintf("csvfile=%s, ", dc.CsvFile))
+	}
 	if dc.SendToVaults {
 		sb.WriteString("Sending TO vaults, ")
 	}

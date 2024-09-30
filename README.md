@@ -99,6 +99,7 @@ Some of these options conflict with eachother if specified together.
     }
   },
   "destination": {
+    "csvFile": "path to csv file",
     "segmentsOfRoot": "orange.algo",
     "allowDuplicateAccounts": true,
     "onlyRoots": false,
@@ -117,6 +118,7 @@ Some of these options conflict with eachother if specified together.
 - `isPerRecip`: Determines whether the amount is per recipient or the total amount to send.  If amount is 100 and isPerRecip is not set or false, then 100 is divided across all recipients.  If isPerRecip is set, then it would be 100 per recipient.
 
 **Destination**: This configures the recipients of the assets.
+- `csvFile`: Path to CSV file to load NFD names from (makes some options irrelevant). The first row must contain column names - with the column containing the nfd name named either nfd or name.π
 - `segmentsOfRoot`: The root segments of the destination.
   - If specified, the NFDs are just those which are segments of a particular root NFD.  If not specified, then ALL nfds are the starting point. 
 - `allowDuplicateAccounts`: Determines whether duplicate accounts are allowed (defaulting to no duplicates)

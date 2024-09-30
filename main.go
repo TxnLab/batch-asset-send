@@ -95,6 +95,9 @@ func main() {
 	misc.Infof(logger, "Collecting data for config:%s", sendConfig.Destination.String())
 	recipients, err = collectRecipients(sendConfig, vaultNfd)
 	misc.Infof(logger, "Collected %d recipients", len(recipients))
+	if err != nil {
+		log.Fatalln("error collecting recipients:", err)
+	}
 
 	if !sendConfig.Destination.AllowDuplicateAccounts {
 		// They don't want dupes !
@@ -104,7 +107,6 @@ func main() {
 			recipients = uniqRecipients
 		}
 	}
-
 	// If sending to vaults, assume worst case of each needing opting in, so MBR + 4 total outer/inner txns
 	// if not to vaults, just asset-transfer but if target not opted-in most txns will fail
 	if sendConfig.Destination.SendToVaults {
