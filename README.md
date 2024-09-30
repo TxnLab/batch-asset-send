@@ -71,7 +71,7 @@ Usage of ./batch-asset-send:
   -parallel int
     	maximum number of sends to do at once - target node may limit (default 40)
   -sender string
-    	account which has to sign all transactions - must have mnemonics in a ALGO_MNEMONIC_xx var
+    	account which has to sign all transactions - must have mnemonics in a [xx]_MNEMONIC[_xx] var
   -vault string
     	Don't send from sender account but from the named NFD vault that sender is owner of
 ```
@@ -79,7 +79,7 @@ Usage of ./batch-asset-send:
 The minimum parameters for use are the -sender parameter.
 This specifies the public address of the account which will be **signing** the transactions.  If using the -vault {nfd name} argument, then it must be the owner of the NFD.  Most arguments have sensible defaults.
 
-The sender MUST have mnemonics defined either as an ALGO_MNEMONIC environment variable or in a local .env file setting the same.
+The sender MUST have mnemonics defined either as an xxxx_MNEMONIC environment variable or in a local .env file setting the same.
 
 The parameters you specify for what to send MUST be specified in a json config file.
 The default is to read from a send.json file in the current directory, but this can be overriden on the command line.
