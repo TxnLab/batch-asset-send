@@ -7,6 +7,7 @@ import (
 	"log"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/v2/transaction"
@@ -251,6 +252,9 @@ func isRateLimited(err error) (*nfdapi.RateLimited, bool) {
 	if swaggerError, match := isSwaggerError(err); match {
 		if limit, match := swaggerError.Model().(nfdapi.RateLimited); match {
 			return &limit, true
+		}
+		if strings.Contains(string(swaggerError.Body()), "429 Too Many Requests") {
+			return &nfdapi.RateLimited{0, 0}, true
 		}
 	}
 	return nil, false
