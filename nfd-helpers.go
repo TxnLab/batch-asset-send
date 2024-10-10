@@ -191,7 +191,16 @@ func getAllSegments(ctx context.Context, config *BatchSendConfig, parentAppID in
 	return nfds, nil
 }
 
-func getAssetSendTxns(sender string, sendFromVaultName string, recipient string, recipientIsVault bool, assetID uint64, amount uint64, params types.SuggestedParams) (string, []byte, error) {
+func getAssetSendTxns(
+	sender string,
+	sendFromVaultName string,
+	recipient string,
+	recipientIsVault bool,
+	assetID uint64,
+	amount uint64,
+	note string,
+	params types.SuggestedParams,
+) (string, []byte, error) {
 	var (
 		encodedTxns string
 		err         error
@@ -199,7 +208,7 @@ func getAssetSendTxns(sender string, sendFromVaultName string, recipient string,
 
 	if sendFromVaultName == "" && recipientIsVault == false {
 		// Not sending from vault, nor sending to a vault - so just plain asset transfer
-		txn, err := transaction.MakeAssetTransferTxn(sender, recipient, amount, nil, params, "", assetID)
+		txn, err := transaction.MakeAssetTransferTxn(sender, recipient, amount, []byte(note), params, "", assetID)
 		if err != nil {
 			return "", nil, fmt.Errorf("MakeAssetTransferTxn fail: %w", err)
 		}
@@ -221,6 +230,7 @@ func getAssetSendTxns(sender string, sendFromVaultName string, recipient string,
 					Receiver:     recipient,
 					ReceiverType: receiverType,
 					Sender:       sender, // owner address
+					Note:         note,
 				},
 				sendFromVaultName,
 			)
@@ -232,6 +242,7 @@ func getAssetSendTxns(sender string, sendFromVaultName string, recipient string,
 						Amount: int64(amount),
 						Assets: []int64{int64(assetID)},
 						Sender: sender, // owner address
+						Note:   note,
 					},
 					recipient,
 				)

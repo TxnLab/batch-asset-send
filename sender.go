@@ -61,6 +61,7 @@ type SendRequest struct {
 	amount           uint64
 	recipient        Recipient
 	sendFromVaultNFD *nfdapi.NfdRecord
+	note             string
 }
 
 func sendAssets(sender string, send []*SendAsset, recipients []*Recipient, vaultNfd *nfdapi.NfdRecord, dryRun bool) {
@@ -137,13 +138,13 @@ func appendToFile(message string, filename string) {
 	}
 }
 
-func QueueSends(sendRequests chan SendRequest, send []*SendAsset, sender string, recipients []*Recipient, sendFromVaultNFD *nfdapi.NfdRecord) {
+func QueueSends(sendRequests chan SendRequest, sendAsset []*SendAsset, sender string, recipients []*Recipient, sendFromVaultNFD *nfdapi.NfdRecord) {
 	var (
 		// Get new params every 30 secs or so
 		txParams = algo.SuggestedParams(ctx, logger, algoClient)
 		ticker   = time.NewTicker(30 * time.Second)
 	)
-	for _, asset := range send {
+	for _, asset := range sendAsset {
 		var amount float64
 		if asset.IsAmountPerRecip {
 			amount = asset.AmountToSend
@@ -179,7 +180,8 @@ func sendAssetToRecipient(sender string, sendReq *SendRequest, dryRun bool) *Rec
 	retReceipt := &RecipientTransaction{
 		sendAsset:       &sendReq.asset,
 		baseUnitsToSend: sendReq.amount,
-		recip:           &sendReq.recipient}
+		recip:           &sendReq.recipient,
+	}
 
 	// First, is this a send FROM a vault or from an account?
 	if sendReq.sendFromVaultNFD != nil {
@@ -200,7 +202,16 @@ func sendAssetToRecipient(sender string, sendReq *SendRequest, dryRun bool) *Rec
 		return retReceipt
 	}
 
-	txnId, signedBytes, err := getAssetSendTxns(sender, sendFromVaultName, recipAsString, sendReq.recipient.SendToVault, sendReq.asset.AssetID, sendReq.amount, sendReq.params)
+	txnId, signedBytes, err := getAssetSendTxns(
+		sender,
+		sendFromVaultName,
+		recipAsString,
+		sendReq.recipient.SendToVault,
+		sendReq.asset.AssetID,
+		sendReq.amount,
+		sendReq.asset.Note,
+		sendReq.params,
+	)
 	if err != nil {
 		retReceipt.Error = fmt.Errorf("failure getting txns: %w", err)
 		return retReceipt

@@ -8,6 +8,26 @@ import (
 	"strings"
 )
 
+type BatchSendConfig struct {
+	Send SendChoice `json:"send"`
+
+	Destination DestinationChoice `json:"destination"`
+}
+
+type SendChoice struct {
+	Asset struct {
+		ASA uint64 `json:"asa"`
+		// If IsPerRcp is NOT set then this is the TOTAL amount to send - and will be divided across destination
+		// count - if IsPerRcp is set then amount is amount per recipient
+		// Specified in user-friendly units - not base units - ie 1.5 ALGO would be 1.5, not 1,500,000
+		Amount float64 `json:"amount"`
+		// Is the amount 'per recipient' or is it total amount to send.
+		IsPerRecip bool `json:"isPerRecip"`
+		// what note to include with the transaction
+		Note string `json:"note,omitempty"`
+	} `json:"asset"`
+}
+
 type DestinationChoice struct {
 	// a csv file of recipient nfds to send to (if not opted in only nfd sends [to vaults] will work)
 	CsvFile string `json:"csvfile"`
@@ -56,32 +76,9 @@ func (dc DestinationChoice) String() string {
 		sb.WriteString(fmt.Sprintf("Verified (v.*) requirements: %v, ", dc.VerifiedRequirements))
 	}
 	if dc.SegmentsOfRoot == "" && !dc.OnlyRoots && dc.RandomNFDs.Count == 0 && len(dc.VerifiedRequirements) == 0 {
-		sb.WriteString("Sending to ALL owned NFDs")
+		sb.WriteString("Sending to ALL owned (matching) NFDs")
 	}
 	return sb.String()
-}
-
-type AssetChoice struct {
-	// If specifying a 'list' of assets to send - if so, assumed '1' base unit per chosen recipient (ie: 1 nft)
-	//CSVFilename string `json:"csvFilename"`
-
-	Asset struct {
-		ASA uint64 `json:"asa"`
-		// If IsPerRcp is NOT set then this is the TOTAL amount to send - and will be divided across destination
-		// count - if IsPerRcp is set then amount is amount per recipient
-		// Specified in user-friendly units - not base units - ie 1.5 ALGO would be 1.5, not 1,500,000
-		Amount float64 `json:"amount"`
-		// Is the amount 'per recipient' or is it total amount to send.
-		IsPerRecip bool `json:"isPerRecip"`
-	} `json:"asset"`
-}
-
-//  1.000000 ALGO -> 1,000,000 microAlgo
-
-type BatchSendConfig struct {
-	Send AssetChoice `json:"send"`
-
-	Destination DestinationChoice `json:"destination"`
 }
 
 func loadJSONConfig(filename string) (*BatchSendConfig, error) {

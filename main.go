@@ -148,6 +148,7 @@ func fetchAssets(config *BatchSendConfig) ([]*SendAsset, error) {
 		ExistingBalance:  holdingInfo.AssetHolding.Amount,
 		AmountToSend:     config.Send.Asset.Amount,
 		IsAmountPerRecip: config.Send.Asset.IsPerRecip,
+		Note:             config.Send.Asset.Note,
 	})
 	return assetsToSend, nil
 }

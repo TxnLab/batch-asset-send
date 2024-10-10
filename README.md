@@ -95,7 +95,8 @@ Some of these options conflict with eachother if specified together.
     "asset": {
       "asa": 123456,
       "amount": 1000000,
-      "isPerRecip": false
+      "isPerRecip": false,
+      "note": "optional note with each transaction"
     }
   },
   "destination": {
@@ -112,10 +113,11 @@ Some of these options conflict with eachother if specified together.
 }
 ```
 
-**Send**: This will likely change significiantly in the future, but right now this just lists the single asset to send (a fungible token).
+**Send**: This will likely change significantly in the future, but right now this just lists the single asset to send (a fungible token).
 - `asa`: The id of the asset to send.
 - `amount`: The amount of asset to send.  This is in the denominated units of the Asset, not its base units.  ie: Assume sending ALGO then 1.5 here really means 1,500,000 microAlgo.
 - `isPerRecip`: Determines whether the amount is per recipient or the total amount to send.  If amount is 100 and isPerRecip is not set or false, then 100 is divided across all recipients.  If isPerRecip is set, then it would be 100 per recipient.
+- `note`: An optional note to include with the transaction
 
 **Destination**: This configures the recipients of the assets.
 - `csvFile`: Path to CSV file to load NFD names from (makes some options irrelevant). The first row must contain column names - with the column containing the nfd name named either nfd or name.π
