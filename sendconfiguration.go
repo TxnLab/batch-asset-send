@@ -47,6 +47,10 @@ type DestinationChoice struct {
 
 	SendToVaults bool `json:"sendToVaults"`
 
+	// Whether to limit the send to only those NFDs that have a version between these two numbers (each optional)
+	MinMajorVersion int `json:"minMajorVersion"`
+	MaxMajorVersion int `json:"maxMajorVersion"`
+
 	// Only send if v.XXXX is present in NFD (ie: verifiedRequirements: ["twitter"] would require v.twitter to be set)
 	VerifiedRequirements []string `json:"verifiedRequirements,omitempty"`
 

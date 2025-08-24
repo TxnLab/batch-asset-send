@@ -176,6 +176,16 @@ func filterNfds(config *BatchSendConfig, records []*nfdapi.NfdRecord) ([]*nfdapi
 				continue
 			}
 		}
+		if config.Destination.MinMajorVersion != 0 {
+			if !IsContractVersionAtLeast(nfd.Properties.Internal["ver"], config.Destination.MinMajorVersion, 0) {
+				continue
+			}
+		}
+		if config.Destination.MaxMajorVersion != 0 {
+			if GetContractMajorVersion(nfd.Properties.Internal["ver"]) > config.Destination.MaxMajorVersion {
+				continue
+			}
+		}
 
 		verifiedProps := nfd.Properties.Verified
 		if len(verifiedProps) > 0 {

@@ -104,6 +104,8 @@ Some of these options conflict with eachother if specified together.
     "segmentsOfRoot": "orange.algo",
     "allowDuplicateAccounts": true,
     "onlyRoots": false,
+    "minMajorVersion": 3,
+    "maxMajorVersion": 3,
     "randomNFDs": {
       "count": 100
     },
@@ -127,6 +129,8 @@ Some of these options conflict with eachother if specified together.
   - The owner of each NFD is used and if allowDuplicateAccounts is false, then only unique owners are chosen amongst the NFDs (picking an artbirary NFD for that owner)
 - `onlyRoots`: Determines whether only root NFDs are allowed.
   - If specified, only roots are chosen with segments being skipped.
+- `minMajorVersion`: If specified, only NFDs with a major version >= this value are considered.
+- `maxMajorVersion`: If specified, only NFDs with a major version <= this value are considered.`  Using both could be used for only sending to 2.x, or 3.x.
 - `randomNFDs`: 
   - `count`: If specified, this is the number of NFDS to choose randomly from the total list.  ie: All segments of root X, but only pick 100 random recipients by specifying a count here.
 - `verifiedRequirements`: An optional array of verified field names.  If specified, the destination NFD must have ALL of the specified verified fields.

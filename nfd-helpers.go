@@ -41,6 +41,19 @@ func IsContractVersionAtLeast(version string, major, minor int) bool {
 	return false
 }
 
+func GetContractMajorVersion(version string) int {
+	majMinReg := regexp.MustCompile(`^(?P<major>\d+)\.(?P<minor>\d+)`)
+	matches := majMinReg.FindStringSubmatch(version)
+	if matches == nil || len(matches) != 3 {
+		return 0
+	}
+	var contractMajor int
+	if val := matches[majMinReg.SubexpIndex("major")]; val != "" {
+		contractMajor, _ = strconv.Atoi(val)
+	}
+	return contractMajor
+}
+
 // IsVaultAutoOptInLockedForSender returns true if the specified 'sender' address
 // would be allowed to send to the NFDs vault.  This is basically an off-chain
 // validation of what the contract itself will do, to save some trouble and skip sending to a vault that won't
