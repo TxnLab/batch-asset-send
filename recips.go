@@ -89,10 +89,36 @@ func getNfdsToChooseFrom(config *BatchSendConfig) ([]*nfdapi.NfdRecord, error) {
 		)
 		csvRecords, err = processCsvFile(config.Destination.CsvFile)
 		if err == nil {
-			misc.Infof(logger, "..read %d NFDs from csv file", len(csvRecords))
+			misc.Infof(logger, "..read %d records from csv file", len(csvRecords))
 			nfdFetchChan := make(chan *nfdapi.NfdRecord, fanSize)
 			go func() {
 				for _, csvRecord := range csvRecords {
+					if csvRecord["account"] != "" {
+						account := csvRecord["account"]
+						// Create a synthetic NFD record with the account address as the NFD name
+						nfdFetchChan <- &nfdapi.NfdRecord{
+							CaAlgo:         []string{account},
+							Name:           strings.ToLower(csvRecord["account"][:32]) + ".fake",
+							Category:       "premiun",
+							DepositAccount: account,
+							Expired:        false,
+							Owner:          account,
+							ParentAppID:    0,
+							Properties: &nfdapi.NfdProperties{
+								Internal:    map[string]string{},
+								UserDefined: map[string]string{},
+								Verified:    map[string]string{},
+							},
+							State:         "owned",
+							TimeChanged:   time.Now(),
+							TimeCreated:   time.Now(),
+							TimeExpires:   time.Now(),
+							TimePurchased: time.Now(),
+						}
+						continue
+					} else if csvRecord["nfd"] == "" {
+						continue
+					}
 					fanOut.Run(func(val any) error {
 						nfdName := val.(string)
 						view := "brief"
@@ -293,18 +319,24 @@ func processCsvFile(csvFile string) ([]map[string]string, error) {
 
 	header := records[0]
 	nameIndex := -1
+	accountIndex := -1
 	for i, colName := range header {
 		if strings.EqualFold(colName, "name") || strings.EqualFold(colName, "nfd") {
 			nameIndex = i
 			break
+		} else if strings.EqualFold(colName, "account") {
+			accountIndex = i
+			break
 		}
 	}
 
-	if nameIndex == -1 {
-		return nil, errors.New("neither 'name' nor 'nfd' column found in CSV file")
+	if nameIndex == -1 && accountIndex == -1 {
+		return nil, errors.New("neither 'name | nfd' or 'account' column found in CSV file")
 	}
 	// always convert column to nfd
-	header[nameIndex] = "nfd"
+	if nameIndex != -1 {
+		header[nameIndex] = "nfd"
+	}
 
 	var result []map[string]string
 	for _, row := range records[1:] {

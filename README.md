@@ -122,7 +122,7 @@ Some of these options conflict with eachother if specified together.
 - `note`: An optional note to include with the transaction
 
 **Destination**: This configures the recipients of the assets.
-- `csvFile`: Path to CSV file to load NFD names from (makes some options irrelevant). The first row must contain column names - with the column containing the nfd name named either nfd or name.π
+- `csvFile`: Path to CSV file to load NFD names from (makes some options irrelevant). The first row must contain column name, either nfd or name (For nfd names), or account.  Each row after the header should contain the nfd or account as appropriate (in the right, or only column).
 - `segmentsOfRoot`: The root segments of the destination.
   - If specified, the NFDs are just those which are segments of a particular root NFD.  If not specified, then ALL nfds are the starting point. 
 - `allowDuplicateAccounts`: Determines whether duplicate accounts are allowed (defaulting to no duplicates)
