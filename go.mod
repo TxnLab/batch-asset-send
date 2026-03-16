@@ -3,7 +3,7 @@ module github.com/TxnLab/batch-asset-send
 go 1.24
 
 require (
-	github.com/algorand/go-algorand-sdk/v2 v2.10.0
+	github.com/algorand/go-algorand-sdk/v2 v2.11.1
 	github.com/antihax/optional v1.0.0
 	github.com/joho/godotenv v1.5.1
 	github.com/mailgun/holster/v4 v4.21.0
