@@ -1,6 +1,6 @@
 module github.com/TxnLab/batch-asset-send
 
-go 1.24
+go 1.25.0
 
 require (
 	github.com/algorand/go-algorand-sdk/v2 v2.11.1
@@ -9,7 +9,7 @@ require (
 	github.com/mailgun/holster/v4 v4.21.0
 	github.com/ssgreg/repeat v1.5.1
 	golang.org/x/crypto v0.41.0
-	golang.org/x/oauth2 v0.30.0
+	golang.org/x/oauth2 v0.36.0
 	golang.org/x/time v0.12.0
 )
 
