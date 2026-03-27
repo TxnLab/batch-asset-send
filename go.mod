@@ -8,7 +8,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/mailgun/holster/v4 v4.21.0
 	github.com/ssgreg/repeat v1.5.1
-	golang.org/x/crypto v0.41.0
+	golang.org/x/crypto v0.49.0
 	golang.org/x/oauth2 v0.36.0
 	golang.org/x/time v0.12.0
 )
